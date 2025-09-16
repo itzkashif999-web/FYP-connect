@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1071976384054",
+    "project_id": "fypconnect-19dfd",
+    "storage_bucket": "fypconnect-19dfd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071976384054:android:aac5c0ce10564007edba97",
+        "android_client_info": {
+          "package_name": "com.example.fyp_connect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhQw6Q1APpHclZm_KaIJNHzBy0RN7R0KE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
