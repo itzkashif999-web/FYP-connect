@@ -1,9 +1,18 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 class RecommendationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // API endpoint for the Ollama backend server
+  final String _apiUrl = 'http://localhost:5000/recommend';
+  
+  // Flag to control whether to use AI recommendations or fallback to pattern matching
+  final bool _useAiRecommendations = true;
 
   /// Fetches all supervisor profiles from Firestore
   Future<List<Map<String, dynamic>>> getAllSupervisors() async {
@@ -75,12 +84,87 @@ class RecommendationService {
   }
 
   /// Returns recommended supervisors sorted by match score
+  /// Uses Ollama AI if available, otherwise falls back to pattern matching
   Future<List<Map<String, dynamic>>> getRecommendedSupervisors() async {
     final student = await getCurrentStudentProfile();
     if (student == null) return [];
     
     final supervisors = await getAllSupervisors();
     
+    if (_useAiRecommendations) {
+      try {
+        // Try to use Ollama AI recommendations
+        final aiRecommendations = await _getOllamaRecommendations(student, supervisors);
+        
+        // If we got AI recommendations, return them
+        if (aiRecommendations.isNotEmpty) {
+          print("✅ Using AI-generated recommendations");
+          return aiRecommendations;
+        }
+      } catch (e) {
+        print("❌ AI recommendation error: $e");
+        // If AI recommendations fail, we'll fall back to pattern matching
+      }
+    }
+    
+    // Fallback to pattern matching if AI isn't available or fails
+    print("⚠️ Using fallback pattern-matching recommendations");
+    return _getPatternMatchingRecommendations(student, supervisors);
+  }
+  
+  /// Gets recommendations using the Ollama LLM through the Python backend
+  Future<List<Map<String, dynamic>>> _getOllamaRecommendations(
+    Map<String, dynamic> student,
+    List<Map<String, dynamic>> supervisors
+  ) async {
+    try {
+      print("📡 Requesting AI recommendations from local server...");
+      
+      // Prepare the request payload
+      final payload = jsonEncode({
+        'student': student,
+        'supervisors': supervisors,
+      });
+      
+      // Set headers for the request
+      final headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Call the backend API
+      final response = await http.post(
+        Uri.parse(_apiUrl),
+        headers: headers,
+        body: payload,
+      ).timeout(const Duration(seconds: 30)); // Set timeout
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final recommendations = List<Map<String, dynamic>>.from(data['recommendations'] ?? []);
+        
+        // Return empty list if no recommendations
+        if (recommendations.isEmpty) {
+          print("⚠️ AI returned no recommendations, falling back to pattern matching");
+          return [];
+        }
+        
+        print("✅ Received ${recommendations.length} AI-generated recommendations");
+        return recommendations;
+      } else {
+        print("❌ API error: ${response.statusCode} - ${response.body}");
+        return [];
+      }
+    } catch (e) {
+      print("❌ Error getting AI recommendations: $e");
+      return [];
+    }
+  }
+  
+  /// Gets recommendations using the original pattern matching algorithm
+  Future<List<Map<String, dynamic>>> _getPatternMatchingRecommendations(
+    Map<String, dynamic> student,
+    List<Map<String, dynamic>> supervisors
+  ) async {
     // Calculate match scores
     List<Map<String, dynamic>> recommendationsWithScores = supervisors.map((supervisor) {
       final score = calculateMatchScore(student, supervisor);

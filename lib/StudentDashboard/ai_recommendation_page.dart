@@ -428,29 +428,49 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              if (specialization.isNotEmpty)
+                              if (supervisor['matchReason'] != null && supervisor['matchReason'].toString().isNotEmpty)
+                                // Display AI-generated match reason if available
                                 Padding(
                                   padding: const EdgeInsets.only(left: 24),
                                   child: Text(
-                                    '• Specializes in $specialization',
+                                    supervisor['matchReason'].toString(),
                                     style: const TextStyle(
                                       color: Colors.blue,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ),
-                              if (preferenceAreas.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 24, top: 4),
-                                  child: Text(
-                                    '• Prefers projects in $preferenceAreas',
-                                    style: const TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                                )
+                              else
+                                // Fallback to showing specialization and preference areas
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (specialization.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 24),
+                                        child: Text(
+                                          '• Specializes in $specialization',
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    if (preferenceAreas.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 24, top: 4),
+                                        child: Text(
+                                          '• Prefers projects in $preferenceAreas',
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                             ],
                           ),
