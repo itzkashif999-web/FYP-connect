@@ -49,27 +49,33 @@ class _SignInPageState extends State<SignInPage> {
           );
         }
 
-        final String role = roleRaw;
+        String role = roleRaw.toString().toLowerCase().trim();
+        print("User role detected: '$role' (original: '$roleRaw')");
 
-        if (role == 'Student') {
+        // Make case-insensitive comparison
+        if (role == 'student') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const StudentDashboard()),
           );
-        } else if (role == 'Supervisor') {
+        } else if (role == 'supervisor') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const SupervisorDashboard()),
           );
-        } else if (role == 'Admin') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => AdminDashboard(currentUserId: FirebaseAuth.instance.currentUser!.uid,)), // 👈 new route
-        );
-      }else {
+        } else if (role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => AdminDashboard(currentUserId: FirebaseAuth.instance.currentUser!.uid)),
+          );
+        } else {
+          // If role doesn't match expected values, show error and role value
+          print("Unrecognized role: '$role'");
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("Dashboard for role '$role' not available."),
+              content: Text("Dashboard for role '$role' not available. Please contact support."),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
             ),
           );
         }

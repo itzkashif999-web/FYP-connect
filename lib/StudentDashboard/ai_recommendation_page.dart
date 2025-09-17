@@ -1,16 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_connect/StudentDashboard/recommendation_service.dart';
 import 'package:fyp_connect/StudentDashboard/submit_proposal_page.dart';
 
-class AIRecommendationPage extends StatelessWidget {
+class AIRecommendationPage extends StatefulWidget {
   const AIRecommendationPage({super.key});
 
   @override
+  State<AIRecommendationPage> createState() => _AIRecommendationPageState();
+}
+
+class _AIRecommendationPageState extends State<AIRecommendationPage> {
+  final RecommendationService _recommendationService = RecommendationService();
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _recommendations = [];
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecommendations();
+  }
+
+  Future<void> _loadRecommendations() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+
+      final recommendations = await _recommendationService.getRecommendedSupervisors();
+      
+      setState(() {
+        _recommendations = recommendations;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load recommendations: $e';
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final recommendations = [
-      'Muhammad Ibtisam Gul – Game Development',
-      'Bushra Mushtaq – Web Development',
-      'Amir Shehzad – Numerical Computation',
-    ];
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -79,7 +112,7 @@ class AIRecommendationPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 15),
                   const Text(
-                    'Based on your interests and academic profile',
+                    'Based on your interests, skills, and supervisor specializations',
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                     textAlign: TextAlign.center,
                   ),
@@ -88,116 +121,200 @@ class AIRecommendationPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          // Recommendations List
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: recommendations.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
+          
+          // Status indicators or Error messages
+          if (_isLoading)
+            const Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      color: Color.fromARGB(255, 24, 81, 91),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Finding your best supervisor matches...',
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 24, 81, 91),
+                        fontWeight: FontWeight.w500,
                       ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            // AI Badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Colors.purple, Colors.deepPurple],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.auto_awesome,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'AI Match',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            // Match Percentage
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(15),
-                                border: Border.all(
-                                  color: Colors.green.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Text(
-                                '${95 - (index * 5)}% Match',
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_errorMessage.isNotEmpty)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _loadRecommendations,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 24, 81, 91),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_recommendations.isEmpty)
+            const Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.search_off_outlined,
+                      color: Colors.grey,
+                      size: 48,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'No matching supervisors found.\nTry updating your profile with more interests and skills.',
+                      style: TextStyle(color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            // Recommendations List
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _recommendations.length,
+                itemBuilder: (context, index) {
+                  final supervisor = _recommendations[index];
+                  final name = supervisor['name'] ?? 'Unknown Supervisor';
+                  final department = supervisor['department'] ?? 'Department not specified';
+                  final projectCount = supervisor['projectCount'] ?? '0';
+                  final matchPercentage = supervisor['matchPercentage'] ?? 0;
+                  final specialization = supervisor['specialization'] ?? '';
+                  final preferenceAreas = supervisor['preferenceAreas'] ?? '';
+                  
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
                         ),
-                        const SizedBox(height: 15),
-                        Row(
-                          children: [
-                            // Profile Avatar
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.primaries[index %
-                                        Colors.primaries.length],
-                                    Colors
-                                        .primaries[index %
-                                            Colors.primaries.length]
-                                        .withOpacity(0.7),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              // AI Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.purple, Colors.deepPurple],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.auto_awesome,
+                                      color: Colors.white,
+                                      size: 12,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'AI Match',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors
-                                        .primaries[index %
-                                            Colors.primaries.length]
-                                        .withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
+                              ),
+                              const Spacer(),
+                              // Match Percentage
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(
+                                    color: Colors.green.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  '$matchPercentage% Match',
+                                  style: const TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 15),
+                          Row(
+                            children: [
+                              // Profile Avatar
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.primaries[index %
+                                          Colors.primaries.length],
+                                      Colors
+                                          .primaries[index %
+                                              Colors.primaries.length]
+                                          .withOpacity(0.7),
+                                    ],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors
+                                          .primaries[index %
+                                              Colors.primaries.length]
+                                          .withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
                                   ),
                                 ],
                               ),
@@ -214,7 +331,7 @@ class AIRecommendationPage extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    recommendations[index],
+                                    name,
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -223,14 +340,34 @@ class AIRecommendationPage extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 5),
                                   Text(
-                                    'Computer Science Department',
+                                    department,
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[600],
                                     ),
                                   ),
+                                  const SizedBox(height: 5),
+                                  // Projects supervised
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.assignment,
+                                        color: Colors.orange,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$projectCount Projects Supervised',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 8),
-                                  // Rating Stars
+                                  // Rating Stars (placeholder for feedback feature)
                                   Row(
                                     children: [
                                       ...List.generate(5, (starIndex) {
@@ -243,11 +380,12 @@ class AIRecommendationPage extends StatelessWidget {
                                         );
                                       }),
                                       const SizedBox(width: 5),
-                                      Text(
-                                        '4.${8 - index}',
-                                        style: const TextStyle(
+                                      const Text(
+                                        'Feedback coming soon',
+                                        style: TextStyle(
                                           fontSize: 12,
-                                          fontWeight: FontWeight.bold,
+                                          fontStyle: FontStyle.italic,
+                                          color: Colors.grey,
                                         ),
                                       ),
                                     ],
@@ -268,24 +406,52 @@ class AIRecommendationPage extends StatelessWidget {
                               color: Colors.blue.withOpacity(0.1),
                             ),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                Icons.lightbulb_outline,
-                                color: Colors.blue,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Recommended based on your interest in ${_getInterest(index)}',
-                                  style: const TextStyle(
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.lightbulb_outline,
                                     color: Colors.blue,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Why this match?',
+                                    style: TextStyle(
+                                      color: Colors.blue,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (specialization.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 24),
+                                  child: Text(
+                                    '• Specializes in $specialization',
+                                    style: const TextStyle(
+                                      color: Colors.blue,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
-                              ),
+                              if (preferenceAreas.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 24, top: 4),
+                                  child: Text(
+                                    '• Prefers projects in $preferenceAreas',
+                                    style: const TextStyle(
+                                      color: Colors.blue,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -346,16 +512,16 @@ class AIRecommendationPage extends StatelessWidget {
                                 ),
                                 child: ElevatedButton.icon(
                                   onPressed: () {
-                                    // Navigator.push(
-                                    //   context,
-                                    //   MaterialPageRoute(
-                                    //     builder:
-                                    //         (context) => SubmitProposalPage(
-                                    //           supervisorName:
-                                    //               recommendations[index],
-                                    //         ),
-                                    //   ),
-                                    // );
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => SubmitProposalPage(
+                                              supervisorName: name,
+                                              supervisorId: supervisor['id'] ?? '',
+                                            ),
+                                      ),
+                                    );
                                   },
                                   icon: const Icon(
                                     Icons.connect_without_contact,
@@ -390,16 +556,5 @@ class AIRecommendationPage extends StatelessWidget {
     );
   }
 
-  String _getInterest(int index) {
-    switch (index) {
-      case 0:
-        return 'AI & Robotics';
-      case 1:
-        return 'Machine Learning';
-      case 2:
-        return 'Natural Language Processing';
-      default:
-        return 'Technology';
-    }
-  }
+  // We no longer need the _getInterest method as we're using real data
 }

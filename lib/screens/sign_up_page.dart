@@ -46,19 +46,20 @@ class _SignUpPageState extends State<SignUpPage> {
           role: _selectedRole!, // Pass role to AuthService
         );
 
-        if (_selectedRole == 'Student') {
+        // Use lowercase for comparison
+        String role = _selectedRole?.toLowerCase() ?? '';
+        
+        if (role == 'student') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const StudentDashboard()),
           );
-        } else if (_selectedRole == 'Supervisor') {
+        } else if (role == 'supervisor') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const SupervisorDashboard()),
-          ); // you need to create it
-          // } else if (_selectedRole == 'Admin') {
-          //   Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard())); // you need to create it
-        } else if (_selectedRole == 'Admin') {
+          );
+        } else if (role == 'admin') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -66,7 +67,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   (_) => AdminDashboard(
                     currentUserId: FirebaseAuth.instance.currentUser!.uid,
                   ),
-            ), // 👈 new route
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -289,7 +290,8 @@ class _SignUpPageState extends State<SignUpPage> {
                                           ['Student', 'Supervisor', 'Admin']
                                               .map(
                                                 (role) => DropdownMenuItem(
-                                                  value: role,
+                                                  // Store role in lowercase for consistency
+                                                  value: role.toLowerCase(),
                                                   child: Text(role),
                                                 ),
                                               )

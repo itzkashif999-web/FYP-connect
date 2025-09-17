@@ -17,6 +17,50 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   final TextEditingController _interestController = TextEditingController();
   final TextEditingController _regNoController = TextEditingController();
   final AuthService _authService = AuthService();
+  
+  // New controllers for skills and interest as strings to store selected values
+  final TextEditingController _skillsController = TextEditingController();
+  
+  // Selected values for dropdowns
+  List<String> _selectedInterests = [];
+  List<String> _selectedSkills = [];
+  
+  // Options for dropdowns
+  final List<String> _interestOptions = [
+    'Artificial Intelligence',
+    'Machine Learning',
+    'Web Development',
+    'Mobile Development',
+    'Cloud Computing',
+    'Cybersecurity',
+    'Data Science',
+    'IoT',
+    'Blockchain',
+    'Game Development',
+    'Robotics',
+    'Natural Language Processing'
+  ];
+  
+  final List<String> _skillsOptions = [
+    'Flutter',
+    'Python',
+    'Java',
+    'JavaScript',
+    'React',
+    'Node.js',
+    'C++',
+    'C#',
+    'Swift',
+    'Kotlin',
+    'PHP',
+    'Ruby',
+    'Go',
+    'SQL',
+    'NoSQL',
+    'HTML/CSS',
+    'TensorFlow',
+    'PyTorch'
+  ];
 
   bool _isEditing = true; // Start in edit mode
   bool _hasData = false; // Track if profile has been saved
@@ -28,17 +72,23 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     _semesterController.dispose();
     _interestController.dispose();
     _regNoController.dispose();
+    _skillsController.dispose();
     super.dispose();
   }
 
   void _saveProfile() async {
     if (_formKey.currentState!.validate()) {
+      // Convert lists to strings for storage
+      final interestsString = _selectedInterests.join(', ');
+      final skillsString = _selectedSkills.join(', ');
+      
       await _authService.saveStudentProfile(
         name: _nameController.text.trim(),
         department: _departmentController.text.trim(),
         semester: _semesterController.text.trim(),
-        interest: _interestController.text.trim(),
+        interest: interestsString.isNotEmpty ? interestsString : _interestController.text.trim(),
         regNo: _regNoController.text.trim(),
+        skills: skillsString, // Add new skills field
       );
 
       setState(() {
@@ -76,11 +126,25 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     final profile = await _authService.getStudentProfile();
 
     if (profile != null) {
+      // Load skills and interests from comma-separated strings
+      String interestsString = profile['interest'] ?? '';
+      String skillsString = profile['skills'] ?? '';
+      
+      // Parse strings to lists if they exist
+      _selectedInterests = interestsString.isNotEmpty 
+          ? interestsString.split(', ').where((i) => i.trim().isNotEmpty).toList()
+          : [];
+          
+      _selectedSkills = skillsString.isNotEmpty 
+          ? skillsString.split(', ').where((s) => s.trim().isNotEmpty).toList()
+          : [];
+          
       setState(() {
         _nameController.text = profile['name'] ?? '';
         _departmentController.text = profile['department'] ?? '';
         _semesterController.text = profile['semester'] ?? '';
         _interestController.text = profile['interest'] ?? '';
+        _skillsController.text = profile['skills'] ?? '';
         _regNoController.text = profile['regNo'] ?? '';
         _hasData = true;
         _isEditing = false;
@@ -98,6 +162,157 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     setState(() {
       _isEditing = false;
     });
+  }
+
+  // New method to build dropdown field
+  Widget _buildMultiSelectDropdown({
+    required String label,
+    required IconData icon,
+    required Color iconColor,
+    required List<String> options,
+    required List<String> selectedValues,
+    required Function(List<String>) onChanged,
+    String? hintText,
+    bool isRequired = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: iconColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _isEditing
+                ? Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!, width: 1),
+                    ),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ...options.map((option) {
+                          final isSelected = selectedValues.contains(option);
+                          return FilterChip(
+                            label: Text(
+                              option,
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.grey[800],
+                                fontSize: 14,
+                              ),
+                            ),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              List<String> newValues = [...selectedValues];
+                              if (selected) {
+                                newValues.add(option);
+                              } else {
+                                newValues.remove(option);
+                              }
+                              onChanged(newValues);
+                            },
+                            backgroundColor: Colors.grey[100],
+                            selectedColor: iconColor,
+                            checkmarkColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          );
+                        }),
+                        if (isRequired && selectedValues.isEmpty && _isEditing)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Please select at least one option',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!, width: 1),
+                    ),
+                    child: selectedValues.isEmpty
+                        ? Text(
+                            'Not provided',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[500],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        : Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: selectedValues
+                                .map(
+                                  (value) => Chip(
+                                    label: Text(
+                                      value,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    backgroundColor: iconColor.withOpacity(0.8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                  ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildFormField({
@@ -459,18 +674,35 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                   : null,
                     ),
 
-                    _buildFormField(
-                      controller: _interestController,
-                      label: 'Research Interest',
+                    // Using dropdown for interests instead of text field
+                    _buildMultiSelectDropdown(
+                      label: 'Research Interests',
                       icon: Icons.lightbulb_outline,
                       iconColor: Colors.orange,
-                      hintText: 'e.g., Machine Learning, Web Development',
-                      maxLines: 3,
-                      validator:
-                          (value) =>
-                              value!.isEmpty
-                                  ? 'Please enter your research interest'
-                                  : null,
+                      options: _interestOptions,
+                      selectedValues: _selectedInterests,
+                      onChanged: (newValues) {
+                        setState(() {
+                          _selectedInterests = newValues;
+                        });
+                      },
+                      hintText: 'Select your research interests',
+                      isRequired: true,
+                    ),
+
+                    // New field for skills
+                    _buildMultiSelectDropdown(
+                      label: 'Skills',
+                      icon: Icons.code,
+                      iconColor: Colors.teal,
+                      options: _skillsOptions,
+                      selectedValues: _selectedSkills,
+                      onChanged: (newValues) {
+                        setState(() {
+                          _selectedSkills = newValues;
+                        });
+                      },
+                      hintText: 'Select your skills',
                     ),
 
                     _buildFormField(
