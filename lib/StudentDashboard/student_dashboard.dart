@@ -448,221 +448,407 @@ class _StudentDashboardState extends State<StudentDashboard> {
       body:
           currentUser == null
               ? const Center(child: Text("User not logged in"))
-              : FutureBuilder<String?>(
-                future: _getProjectIdForStudent(currentUser.uid),
-                builder: (context, projectSnapshot) {
-                  if (!projectSnapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
+              : StreamBuilder<DocumentSnapshot>(
+                stream:
+                    FirebaseFirestore.instance
+                        .collection('students')
+                        .doc(currentUser.uid)
+                        .snapshots(),
+                builder: (context, snapshot) {
+                  // ✅ Default values
+                  String supervisorName = "Not Assigned";
+                  String projectStatus = "Pending";
+                  double projectProgress = 0.0;
+
+                  if (snapshot.hasData && snapshot.data!.exists) {
+                    final studentData =
+                        snapshot.data!.data() as Map<String, dynamic>?;
+
+                    supervisorName =
+                        studentData?['supervisorName'] ?? "Not Assigned";
+                    projectStatus = studentData?['projectStatus'] ?? "Pending";
+                    projectProgress =
+                        (studentData?['progress'] ?? 0).toDouble();
                   }
 
-                  final projectId = projectSnapshot.data;
-                  if (projectId == null) {
-                    return const Center(
-                      child: Text("Project not assigned yet"),
-                    );
-                  }
-
-                  return FutureBuilder<double>(
-                    future: _fetchOverallProgress(projectId),
-                    builder: (context, progressSnapshot) {
-                      final projectProgress =
-                          progressSnapshot.data != null
-                              ? progressSnapshot.data!
-                              : 0.0;
-
-                      return StreamBuilder<DocumentSnapshot>(
-                        stream:
-                            FirebaseFirestore.instance
-                                .collection('students')
-                                .doc(currentUser.uid)
-                                .snapshots(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-
-                          final studentData =
-                              snapshot.data!.data() as Map<String, dynamic>?;
-                          final supervisorName =
-                              studentData?['supervisorName'] ?? 'Not Assigned';
-                          final projectStatus =
-                              studentData?['projectStatus'] ?? 'Pending';
-
-                          return RefreshIndicator(
-                            onRefresh: () async {
-                              await _loadMilestones(); // 🔹 reload milestones from Firestore
-                              setState(() {}); // rebuild UI
-                            },
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Color.fromARGB(255, 24, 81, 91),
-                                    Colors.white,
-                                  ],
-                                  stops: [0.0, 0.3],
-                                ),
+                  // ✅ Always build dashboard with defaults if no data
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      await _loadMilestones();
+                      setState(() {});
+                    },
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color.fromARGB(255, 24, 81, 91),
+                            Colors.white,
+                          ],
+                          stops: [0.0, 0.3],
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 🔹 Welcome Section
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 5),
+                                  ),
+                                ],
                               ),
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Welcome Section
-                                    Container(
-                                      padding: const EdgeInsets.all(20),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.9),
-                                        borderRadius: BorderRadius.circular(20),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.1,
-                                            ),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 5),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const CircleAvatar(
-                                            radius: 30,
-                                            backgroundColor: Color.fromARGB(
+                              child: Row(
+                                children: [
+                                  const CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Color.fromARGB(
+                                      255,
+                                      24,
+                                      81,
+                                      91,
+                                    ),
+                                    child: Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 15),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Welcome Back!',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
                                               255,
                                               24,
                                               81,
                                               91,
                                             ),
-                                            child: Icon(
-                                              Icons.person,
-                                              color: Colors.white,
-                                              size: 30,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Supervisor: $supervisorName',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withOpacity(
+                                              0.2,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
                                           ),
-                                          const SizedBox(width: 15),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                const Text(
-                                                  'Welcome Back!',
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Color.fromARGB(
-                                                      255,
-                                                      24,
-                                                      81,
-                                                      91,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Text(
-                                                  'Supervisor: $supervisorName',
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 5),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.green
-                                                        .withOpacity(0.2),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                  ),
-                                                  child: Text(
-                                                    projectStatus,
-                                                    style: const TextStyle(
-                                                      color: Colors.green,
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
+                                          child: Text(
+                                            projectStatus,
+                                            style: const TextStyle(
+                                              color: Colors.green,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // 🔹 Progress Pie Chart
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 0,
+                              ),
+                              child: Card(
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color.fromARGB(255, 81, 163, 173),
+                                        Color.fromARGB(255, 147, 185, 195),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: const [
+                                          Icon(
+                                            Icons.track_changes,
+                                            color: Color.fromARGB(
+                                              255,
+                                              24,
+                                              81,
+                                              91,
+                                            ),
+                                            size: 24,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            "Overall Progress",
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color.fromARGB(
+                                                255,
+                                                24,
+                                                81,
+                                                91,
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    const SizedBox(height: 20),
-
-                                    // Overall Progress Card with Pie Chart
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 0,
-                                      ),
-                                      child: Card(
-                                        elevation: 4,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(20),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color.fromARGB(
-                                                  255,
-                                                  81,
-                                                  163,
-                                                  173,
-                                                ),
-                                                Color.fromARGB(
-                                                  255,
-                                                  147,
-                                                  185,
-                                                  195,
-                                                ),
-                                              ],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            ),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: const [
-                                                  Icon(
-                                                    Icons.track_changes,
+                                      const SizedBox(height: 16),
+                                      Center(
+                                        child: SizedBox(
+                                          height: 150,
+                                          width: 150,
+                                          child: PieChart(
+                                            PieChartData(
+                                              sections: [
+                                                PieChartSectionData(
+                                                  value: projectProgress * 100,
+                                                  color: const Color.fromARGB(
+                                                    255,
+                                                    50,
+                                                    185,
+                                                    106,
+                                                  ),
+                                                  radius: 50,
+                                                  title:
+                                                      '${(projectProgress * 100).toInt()}%',
+                                                  titleStyle: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
                                                     color: Color.fromARGB(
                                                       255,
-                                                      24,
-                                                      81,
-                                                      91,
+                                                      20,
+                                                      48,
+                                                      53,
                                                     ),
-                                                    size: 24,
                                                   ),
-                                                  SizedBox(width: 8),
-                                                  Text(
-                                                    "Overall Progress",
-                                                    style: TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.w600,
+                                                ),
+                                                PieChartSectionData(
+                                                  value:
+                                                      (1 - projectProgress) *
+                                                      100,
+                                                  color: Colors.grey.shade200,
+                                                  radius: 50,
+                                                  title: '',
+                                                ),
+                                              ],
+                                              sectionsSpace: 0,
+                                              centerSpaceRadius: 40,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Calendar Section
+                            const Text(
+                              'Milestone Calendar',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Color.fromARGB(255, 24, 81, 91),
+                              ),
+                            ),
+                            const SizedBox(height: 15),
+                            Card(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              elevation: 5,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    TableCalendar<String>(
+                                      firstDay: DateTime.utc(2020, 1, 1),
+                                      lastDay: DateTime.utc(2030, 12, 31),
+                                      focusedDay: _focusedDay,
+                                      eventLoader: _getEventsForDay,
+                                      startingDayOfWeek:
+                                          StartingDayOfWeek.monday,
+                                      selectedDayPredicate:
+                                          (day) => isSameDay(_selectedDay, day),
+                                      onDaySelected: (selectedDay, focusedDay) {
+                                        setState(() {
+                                          _selectedDay = selectedDay;
+                                          _focusedDay = focusedDay;
+                                        });
+                                      },
+                                      onPageChanged: (focusedDay) {
+                                        _focusedDay = focusedDay;
+                                      },
+                                      headerStyle: const HeaderStyle(
+                                        formatButtonVisible: false,
+                                        titleCentered: true,
+                                        titleTextStyle: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+
+                                      // 🔹 Customize milestone appearance
+                                      calendarBuilders: CalendarBuilders(
+                                        // ✅ Dot under milestone day
+                                        markerBuilder: (context, day, events) {
+                                          if (events.isNotEmpty) {
+                                            return Positioned(
+                                              bottom: 4,
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children:
+                                                    events.map((e) {
+                                                      return Container(
+                                                        margin:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 1.5,
+                                                            ),
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration:
+                                                            const BoxDecoration(
+                                                              shape:
+                                                                  BoxShape
+                                                                      .circle,
+                                                              color:
+                                                                  Colors.teal,
+                                                            ),
+                                                      );
+                                                    }).toList(),
+                                              ),
+                                            );
+                                          }
+                                          return null;
+                                        },
+
+                                        // ✅ Highlight milestone day with circle
+                                        defaultBuilder: (
+                                          context,
+                                          day,
+                                          focusedDay,
+                                        ) {
+                                          final events = _getEventsForDay(day);
+                                          if (events.isNotEmpty) {
+                                            return Container(
+                                              margin: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.teal.withOpacity(
+                                                  0.15,
+                                                ),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                '${day.day}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.teal,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          return null; // use default style otherwise
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    if (_selectedDay != null &&
+                                        _getEventsForDay(
+                                          _selectedDay!,
+                                        ).isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: const Color.fromARGB(
+                                            255,
+                                            24,
+                                            81,
+                                            91,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Events on ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}:',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Color.fromARGB(
+                                                  255,
+                                                  24,
+                                                  81,
+                                                  91,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            ..._getEventsForDay(
+                                              _selectedDay!,
+                                            ).map(
+                                              (event) => Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 2,
+                                                    ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.circle,
+                                                      size: 8,
                                                       color: Color.fromARGB(
                                                         255,
                                                         24,
@@ -670,303 +856,33 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                                         91,
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 16),
-                                              Center(
-                                                child: SizedBox(
-                                                  height: 150,
-                                                  width: 150,
-                                                  child: PieChart(
-                                                    PieChartData(
-                                                      sections: [
-                                                        PieChartSectionData(
-                                                          value:
-                                                              projectProgress *
-                                                              100,
-                                                          color:
-                                                              const Color.fromARGB(
-                                                                255,
-                                                                50,
-                                                                185,
-                                                                106,
-                                                              ),
-                                                          radius: 50,
-                                                          title:
-                                                              '${(projectProgress * 100).toInt()}%',
-                                                          titleStyle:
-                                                              const TextStyle(
-                                                                fontSize: 18,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                color:
-                                                                    Color.fromARGB(
-                                                                      255,
-                                                                      20,
-                                                                      48,
-                                                                      53,
-                                                                    ),
-                                                              ),
-                                                        ),
-                                                        PieChartSectionData(
-                                                          value:
-                                                              (1 -
-                                                                  projectProgress) *
-                                                              100,
-                                                          color:
-                                                              Colors
-                                                                  .grey
-                                                                  .shade200, // <-- updated
-                                                          radius: 50,
-                                                          title: '',
-                                                        ),
-                                                      ],
-                                                      sectionsSpace: 0,
-                                                      centerSpaceRadius: 40,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 20),
-
-                                    // Calendar Section
-                                    const Text(
-                                      'Milestone Calendar',
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color.fromARGB(255, 24, 81, 91),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 15),
-                                    Card(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(15),
-                                      ),
-                                      elevation: 5,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          children: [
-                                            TableCalendar<String>(
-                                              firstDay: DateTime.utc(
-                                                2020,
-                                                1,
-                                                1,
-                                              ),
-                                              lastDay: DateTime.utc(
-                                                2030,
-                                                12,
-                                                31,
-                                              ),
-                                              focusedDay: _focusedDay,
-                                              eventLoader: _getEventsForDay,
-                                              startingDayOfWeek:
-                                                  StartingDayOfWeek.monday,
-                                              selectedDayPredicate:
-                                                  (day) => isSameDay(
-                                                    _selectedDay,
-                                                    day,
-                                                  ),
-                                              onDaySelected: (
-                                                selectedDay,
-                                                focusedDay,
-                                              ) {
-                                                setState(() {
-                                                  _selectedDay = selectedDay;
-                                                  _focusedDay = focusedDay;
-                                                });
-                                              },
-                                              onPageChanged: (focusedDay) {
-                                                _focusedDay = focusedDay;
-                                              },
-                                              headerStyle: const HeaderStyle(
-                                                formatButtonVisible: false,
-                                                titleCentered: true,
-                                                titleTextStyle: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-
-                                              // 🔹 Customize milestone appearance
-                                              calendarBuilders: CalendarBuilders(
-                                                // ✅ Dot under milestone day
-                                                markerBuilder: (
-                                                  context,
-                                                  day,
-                                                  events,
-                                                ) {
-                                                  if (events.isNotEmpty) {
-                                                    return Positioned(
-                                                      bottom: 4,
-                                                      child: Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .center,
-                                                        children:
-                                                            events.map((e) {
-                                                              return Container(
-                                                                margin:
-                                                                    const EdgeInsets.symmetric(
-                                                                      horizontal:
-                                                                          1.5,
-                                                                    ),
-                                                                width: 6,
-                                                                height: 6,
-                                                                decoration: const BoxDecoration(
-                                                                  shape:
-                                                                      BoxShape
-                                                                          .circle,
-                                                                  color:
-                                                                      Colors
-                                                                          .teal,
-                                                                ),
-                                                              );
-                                                            }).toList(),
-                                                      ),
-                                                    );
-                                                  }
-                                                  return null;
-                                                },
-
-                                                // ✅ Highlight milestone day with circle
-                                                defaultBuilder: (
-                                                  context,
-                                                  day,
-                                                  focusedDay,
-                                                ) {
-                                                  final events =
-                                                      _getEventsForDay(day);
-                                                  if (events.isNotEmpty) {
-                                                    return Container(
-                                                      margin:
-                                                          const EdgeInsets.all(
-                                                            6,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.teal
-                                                            .withOpacity(0.15),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      alignment:
-                                                          Alignment.center,
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      // 🔹 prevents RenderFlex overflow
                                                       child: Text(
-                                                        '${day.day}',
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors.teal,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }
-                                                  return null; // use default style otherwise
-                                                },
-                                              ),
-                                            ),
-                                            const SizedBox(height: 10),
-                                            if (_selectedDay != null &&
-                                                _getEventsForDay(
-                                                  _selectedDay!,
-                                                ).isNotEmpty)
-                                              Container(
-                                                padding: const EdgeInsets.all(
-                                                  12,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: const Color.fromARGB(
-                                                    255,
-                                                    24,
-                                                    81,
-                                                    91,
-                                                  ).withOpacity(0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Events on ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}:',
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Color.fromARGB(
-                                                          255,
-                                                          24,
-                                                          81,
-                                                          91,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 5),
-                                                    ..._getEventsForDay(
-                                                      _selectedDay!,
-                                                    ).map(
-                                                      (event) => Padding(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 2,
-                                                            ),
-                                                        child: Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            const Icon(
-                                                              Icons.circle,
-                                                              size: 8,
-                                                              color:
-                                                                  Color.fromARGB(
-                                                                    255,
-                                                                    24,
-                                                                    81,
-                                                                    91,
-                                                                  ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 8,
-                                                            ),
-                                                            Expanded(
-                                                              // 🔹 prevents RenderFlex overflow
-                                                              child: Text(
-                                                                event,
-                                                                softWrap: true,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .visible,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
+                                                        event,
+                                                        softWrap: true,
+                                                        overflow:
+                                                            TextOverflow
+                                                                .visible,
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                               ),
+                                            ),
                                           ],
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 20),
                                   ],
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      );
-                    },
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),

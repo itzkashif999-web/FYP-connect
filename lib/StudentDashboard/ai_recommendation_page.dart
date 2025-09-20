@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fyp_connect/StudentDashboard/recommendation_service.dart';
 import 'package:fyp_connect/StudentDashboard/submit_proposal_page.dart';
@@ -14,11 +16,39 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _recommendations = [];
   String _errorMessage = '';
+  bool _canApply = true;
 
   @override
   void initState() {
     super.initState();
     _loadRecommendations();
+    _listenProposalStatus();
+  }
+
+  void _listenProposalStatus() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    FirebaseFirestore.instance
+        .collection('proposals')
+        .where('studentId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+          bool hasPendingOrAccepted = false;
+
+          for (var doc in snapshot.docs) {
+            final status = (doc['status'] ?? '').toString().toLowerCase();
+            if (status == 'pending' || status == 'accepted') {
+              hasPendingOrAccepted = true;
+              break;
+            }
+          }
+
+          setState(() {
+            _canApply =
+                !hasPendingOrAccepted; // disable Apply if pending/accepted
+          });
+        });
   }
 
   Future<void> _loadRecommendations() async {
@@ -28,8 +58,9 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
         _errorMessage = '';
       });
 
-      final recommendations = await _recommendationService.getRecommendedSupervisors();
-      
+      final recommendations =
+          await _recommendationService.getRecommendedSupervisors();
+
       setState(() {
         _recommendations = recommendations;
         _isLoading = false;
@@ -44,7 +75,6 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -121,7 +151,7 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Status indicators or Error messages
           if (_isLoading)
             const Expanded(
@@ -205,12 +235,13 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                 itemBuilder: (context, index) {
                   final supervisor = _recommendations[index];
                   final name = supervisor['name'] ?? 'Unknown Supervisor';
-                  final department = supervisor['department'] ?? 'Department not specified';
+                  final department =
+                      supervisor['department'] ?? 'Department not specified';
                   final projectCount = supervisor['projectCount'] ?? '0';
                   final matchPercentage = supervisor['matchPercentage'] ?? 0;
                   final specialization = supervisor['specialization'] ?? '';
                   final preferenceAreas = supervisor['preferenceAreas'] ?? '';
-                  
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
@@ -315,243 +346,204 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                                           .withOpacity(0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            // Supervisor Info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color.fromARGB(255, 133, 213, 231),
                                     ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    department,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  // Projects supervised
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.assignment,
-                                        color: Colors.orange,
-                                        size: 14,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '$projectCount Projects Supervised',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[700],
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  // Rating Stars (placeholder for feedback feature)
-                                  Row(
-                                    children: [
-                                      ...List.generate(5, (starIndex) {
-                                        return Icon(
-                                          starIndex < 4
-                                              ? Icons.star
-                                              : Icons.star_border,
-                                          color: Colors.amber,
-                                          size: 16,
-                                        );
-                                      }),
-                                      const SizedBox(width: 5),
-                                      const Text(
-                                        'Feedback coming soon',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontStyle: FontStyle.italic,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        // Recommendation Reason
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Colors.blue.withOpacity(0.1),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.lightbulb_outline,
-                                    color: Colors.blue,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Why this match?',
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              if (supervisor['matchReason'] != null && supervisor['matchReason'].toString().isNotEmpty)
-                                // Display AI-generated match reason if available
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 24),
-                                  child: Text(
-                                    supervisor['matchReason'].toString(),
-                                    style: const TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                )
-                              else
-                                // Fallback to showing specialization and preference areas
-                                Column(
+                              const SizedBox(width: 15),
+                              // Supervisor Info
+                              Expanded(
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (specialization.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 24),
-                                        child: Text(
-                                          '• Specializes in $specialization',
-                                          style: const TextStyle(
-                                            color: Colors.blue,
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color.fromARGB(
+                                          255,
+                                          133,
+                                          213,
+                                          231,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      department,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    // Projects supervised
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.assignment,
+                                          color: Colors.orange,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$projectCount Projects Supervised',
+                                          style: TextStyle(
                                             fontSize: 12,
+                                            color: Colors.grey[700],
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
-                                      ),
-                                    if (preferenceAreas.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 24, top: 4),
-                                        child: Text(
-                                          '• Prefers projects in $preferenceAreas',
-                                          style: const TextStyle(
-                                            color: Colors.blue,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Rating Stars (placeholder for feedback feature)
+                                    Row(
+                                      children: [
+                                        ...List.generate(5, (starIndex) {
+                                          return Icon(
+                                            starIndex < 4
+                                                ? Icons.star
+                                                : Icons.star_border,
+                                            color: Colors.amber,
+                                            size: 16,
+                                          );
+                                        }),
+                                        const SizedBox(width: 5),
+                                        Expanded(
+                                          child: const Text(
+                                            'Feedback coming soon',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                              color: Colors.grey,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-                        // Action Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  // View profile action
-                                },
-                                icon: const Icon(Icons.visibility, size: 16),
-                                label: const Text('View Profile'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Color.fromARGB(
-                                    255,
-                                    24,
-                                    81,
-                                    91,
-                                  ),
-
-                                  side: const BorderSide(
-                                    color: Color.fromARGB(255, 24, 81, 91),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color.fromARGB(255, 24, 81, 91),
-                                      Color.fromARGB(255, 133, 213, 231),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Color.fromARGB(
-                                        255,
-                                        133,
-                                        213,
-                                        231,
-                                      ).withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
+                                      ],
                                     ),
                                   ],
                                 ),
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => SubmitProposalPage(
-                                              supervisorName: name,
-                                              supervisorId: supervisor['id'] ?? '',
-                                            ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 15),
+                          // Recommendation Reason
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.1),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.lightbulb_outline,
+                                      color: Colors.blue,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Why this match?',
+                                      style: TextStyle(
+                                        color: Colors.blue,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.connect_without_contact,
-                                    size: 16,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                if (supervisor['matchReason'] != null &&
+                                    supervisor['matchReason']
+                                        .toString()
+                                        .isNotEmpty)
+                                  // Display AI-generated match reason if available
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 24),
+                                    child: Text(
+                                      supervisor['matchReason'].toString(),
+                                      style: const TextStyle(
+                                        color: Colors.blue,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  // Fallback to showing specialization and preference areas
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (specialization.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 24,
+                                          ),
+                                          child: Text(
+                                            '• Specializes in $specialization',
+                                            style: const TextStyle(
+                                              color: Colors.blue,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      if (preferenceAreas.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 24,
+                                            top: 4,
+                                          ),
+                                          child: Text(
+                                            '• Prefers projects in $preferenceAreas',
+                                            style: const TextStyle(
+                                              color: Colors.blue,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  label: const Text('Apply'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    foregroundColor: Colors.white,
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    // View profile action
+                                  },
+                                  icon: const Icon(Icons.visibility, size: 16),
+                                  label: const Text('View Profile'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Color.fromARGB(
+                                      255,
+                                      24,
+                                      81,
+                                      91,
+                                    ),
+
+                                    side: const BorderSide(
+                                      color: Color.fromARGB(255, 24, 81, 91),
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -561,16 +553,81 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color.fromARGB(255, 24, 81, 91),
+                                        Color.fromARGB(255, 133, 213, 231),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Color.fromARGB(
+                                          255,
+                                          133,
+                                          213,
+                                          231,
+                                        ).withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ElevatedButton.icon(
+                                    onPressed:
+                                        _canApply
+                                            ? () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder:
+                                                      (
+                                                        context,
+                                                      ) => SubmitProposalPage(
+                                                        supervisorName: name,
+                                                        supervisorId:
+                                                            supervisor['id'] ??
+                                                            '',
+                                                      ),
+                                                ),
+                                              );
+                                            }
+                                            : null, // disables button
+                                    icon: const Icon(
+                                      Icons.connect_without_contact,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Apply'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      foregroundColor: Colors.white,
+                                      disabledBackgroundColor:
+                                          Colors.grey, // Grey when disabled
+                                      disabledForegroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );

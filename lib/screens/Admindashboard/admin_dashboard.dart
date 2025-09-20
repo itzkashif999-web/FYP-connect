@@ -22,7 +22,7 @@ class AdminDashboard extends StatelessWidget {
             .collection('users')
             .doc(currentUserId)
             .get();
-    return userDoc['role'] == 'Admin';
+    return userDoc['role'] == 'admin';
   }
 
   @override

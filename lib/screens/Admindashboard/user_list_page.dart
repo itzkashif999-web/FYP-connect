@@ -136,7 +136,7 @@ class _UserListPageState extends State<UserListPage> {
   }
 
   void _editUser(BuildContext context, String userId, String role) {
-    if (role == "Student") {
+    if (role == "student") {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -276,10 +276,10 @@ class _UserListPageState extends State<UserListPage> {
         ),
         columns: [
           const DataColumn(label: Text('Name')),
-          DataColumn(label: Text(role == 'Student' ? 'Reg No' : 'Faculty ID')),
-          if (role == 'Supervisor')
+          DataColumn(label: Text(role == 'student' ? 'Reg No' : 'Faculty ID')),
+          if (role == 'supervisor')
             const DataColumn(label: Text('Active Projects')),
-          if (role == 'Student')
+          if (role == 'student')
             const DataColumn(label: Text('Proposal Status')),
           const DataColumn(label: Text('Actions')),
         ],
@@ -290,12 +290,12 @@ class _UserListPageState extends State<UserListPage> {
                   DataCell(Text(user['name'])),
                   DataCell(
                     Text(
-                      role == 'Student' ? user['regNo'] : user['supervisorId'],
+                      role == 'student' ? user['regNo'] : user['supervisorId'],
                     ),
                   ),
-                  if (role == 'Supervisor')
+                  if (role == 'supervisor')
                     DataCell(Text(user['activeProjects'].toString())),
-                  if (role == 'Student') DataCell(Text(user['proposalStatus'])),
+                  if (role == 'student') DataCell(Text(user['proposalStatus'])),
                   DataCell(
                     Row(
                       children: [
@@ -431,7 +431,7 @@ class _UserListPageState extends State<UserListPage> {
                         stream:
                             FirebaseFirestore.instance
                                 .collection('users')
-                                .where('role', isEqualTo: 'Supervisor')
+                                .where('role', isEqualTo: 'supervisor')
                                 .snapshots(),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
@@ -479,7 +479,7 @@ class _UserListPageState extends State<UserListPage> {
                               return SingleChildScrollView(
                                 child: _buildDataTable(
                                   data: filtered,
-                                  role: 'Supervisor',
+                                  role: 'supervisor',
                                 ),
                               );
                             },
@@ -514,7 +514,7 @@ class _UserListPageState extends State<UserListPage> {
                       stream:
                           FirebaseFirestore.instance
                               .collection('users')
-                              .where('role', isEqualTo: 'Student')
+                              .where('role', isEqualTo: 'student')
                               .snapshots(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
@@ -561,7 +561,7 @@ class _UserListPageState extends State<UserListPage> {
                             return SingleChildScrollView(
                               child: _buildDataTable(
                                 data: filteredStudents,
-                                role: 'Student',
+                                role: 'student',
                               ),
                             );
                           },
