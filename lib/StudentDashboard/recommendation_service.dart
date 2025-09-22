@@ -105,6 +105,7 @@ class RecommendationService {
     if (student == null) return [];
 
     final supervisors = await getAllSupervisors();
+    List<Map<String, dynamic>> recommendations = [];
 
     if (_useAiRecommendations) {
       try {
@@ -114,10 +115,10 @@ class RecommendationService {
           supervisors,
         );
 
-        // If we got AI recommendations, return them
+        // If we got AI recommendations, use them
         if (aiRecommendations.isNotEmpty) {
           print("✅ Using AI-generated recommendations");
-          return aiRecommendations;
+          recommendations = aiRecommendations;
         }
       } catch (e) {
         print("❌ AI recommendation error: $e");
@@ -126,8 +127,17 @@ class RecommendationService {
     }
 
     // Fallback to pattern matching if AI isn't available or fails
-    print("⚠️ Using fallback pattern-matching recommendations");
-    return _getPatternMatchingRecommendations(student, supervisors);
+    if (recommendations.isEmpty) {
+      print("⚠️ Using fallback pattern-matching recommendations");
+      recommendations = await _getPatternMatchingRecommendations(student, supervisors);
+    }
+
+    // Filter out supervisors with 0% matchPercentage, then return top 5
+    final filtered = recommendations.where((rec) {
+      final percent = rec['matchPercentage'] ?? 0;
+      return percent > 0;
+    }).toList();
+    return filtered.take(5).toList();
   }
 
   /// Gets recommendations using the Ollama LLM through the Python backend

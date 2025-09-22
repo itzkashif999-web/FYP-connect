@@ -17,6 +17,309 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
   List<Map<String, dynamic>> _recommendations = [];
   String _errorMessage = '';
   bool _canApply = true;
+  
+  // Helper method to build star rating
+  Widget _buildStarRating(double rating) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        return Icon(
+          index < rating.floor() 
+              ? Icons.star 
+              : index < rating 
+              ? Icons.star_half 
+              : Icons.star_border,
+          color: Colors.amber,
+          size: 16,
+        );
+      }),
+    );
+  }
+  
+  // Helper method to build detail rows
+  Widget _buildDetailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color.fromARGB(255, 24, 81, 91),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Show supervisor details in a modal bottom sheet
+  void _showSupervisorDetails(Map<String, dynamic> supervisor) {
+    final name = supervisor['name'] ?? 'Unknown Supervisor';
+    final department = supervisor['department'] ?? 'Department not specified';
+    final specialization = supervisor['specialization'] ?? 'Not specified';
+    final email = supervisor['email'] ?? 'Not available';
+    final preferenceAreas = supervisor['preferenceAreas'] ?? '';
+    final projectHistory = supervisor['projectsHistory'] ?? 'Not available';
+    final rating = supervisor['rating'] != null 
+        ? (supervisor['rating'] as num).toDouble() 
+        : 4.0;
+    
+    // Extract specializations for tags
+    List<String> specializations = [];
+    if (supervisor['preferenceAreas'] != null) {
+      if (supervisor['preferenceAreas'] is String) {
+        specializations = supervisor['preferenceAreas']
+            .toString()
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      } else if (supervisor['preferenceAreas'] is List) {
+        specializations = (supervisor['preferenceAreas'] as List)
+            .map((s) => s.toString())
+            .toList();
+      }
+    }
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 50,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Color.fromARGB(255, 24, 81, 91),
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color.fromARGB(255, 24, 81, 91),
+                          ),
+                        ),
+                        Text(
+                          department,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _buildStarRating(rating),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$rating Rating',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+              
+              // Show Preference Areas if present
+              if (supervisor['preferenceAreas'] != null && supervisor['preferenceAreas'].toString().isNotEmpty)
+                _buildDetailRow('Preference Areas', supervisor['preferenceAreas'] is List ? (supervisor['preferenceAreas'] as List).join(', ') : supervisor['preferenceAreas'].toString()),
+
+              // Show Project Categories if present
+              if (supervisor['projectHistoryCategories'] != null && supervisor['projectHistoryCategories'].toString().isNotEmpty)
+                _buildDetailRow('Project Categories', supervisor['projectHistoryCategories'] is List ? (supervisor['projectHistoryCategories'] as List).join(', ') : supervisor['projectHistoryCategories'].toString()),
+
+              // Show Specializations if present
+              if (supervisor['specializations'] != null && supervisor['specializations'].toString().isNotEmpty)
+                _buildDetailRow('Specializations', supervisor['specializations'] is List ? (supervisor['specializations'] as List).join(', ') : supervisor['specializations'].toString()),
+
+              // Already present:
+              _buildDetailRow('Specialization', specialization),
+              _buildDetailRow('Projects History', projectHistory),
+              _buildDetailRow('Email', email),
+              
+              // Match reason from AI if available
+              if (supervisor['matchReason'] != null && supervisor['matchReason'].toString().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'AI Match Reason',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.purple.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          supervisor['matchReason'].toString(),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              const SizedBox(height: 20),
+              if (specializations.isNotEmpty) ...[
+                const Text(
+                  'Areas of Interest',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 24, 81, 91),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: specializations.map((spec) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 133, 213, 231).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: const Color.fromARGB(255, 133, 213, 231).withOpacity(0.2),
+                      ),
+                    ),
+                    child: Text(
+                      spec,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color.fromARGB(255, 24, 81, 91),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ],
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color.fromARGB(255, 24, 81, 91),
+                        Color.fromARGB(255, 133, 213, 231),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _canApply
+                        ? () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SubmitProposalPage(
+                                  supervisorName: name,
+                                  supervisorId: supervisor['id'] ?? '',
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Text(
+                      'Submit Proposal',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -528,9 +831,7 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                             children: [
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    // View profile action
-                                  },
+                                  onPressed: () => _showSupervisorDetails(supervisor),
                                   icon: const Icon(Icons.visibility, size: 16),
                                   label: const Text('View Profile'),
                                   style: OutlinedButton.styleFrom(
