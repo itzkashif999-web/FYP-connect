@@ -191,7 +191,6 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
               // Already present:
               _buildDetailRow('Specialization', specialization),
               _buildDetailRow('Projects History', projectHistory),
-              _buildDetailRow('Email', email),
               
               // Match reason from AI if available
               if (supervisor['matchReason'] != null && supervisor['matchReason'].toString().isNotEmpty)
@@ -268,52 +267,6 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                 ),
               ],
               const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color.fromARGB(255, 24, 81, 91),
-                        Color.fromARGB(255, 133, 213, 231),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _canApply
-                        ? () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SubmitProposalPage(
-                                  supervisorName: name,
-                                  supervisorId: supervisor['id'] ?? '',
-                                ),
-                              ),
-                            );
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                    child: const Text(
-                      'Submit Proposal',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
