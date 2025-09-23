@@ -25,21 +25,73 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   List<String> _selectedInterests = [];
   List<String> _selectedSkills = [];
   
+  // Controllers for custom inputs
+  final TextEditingController _otherInterestController = TextEditingController();
+  final TextEditingController _otherSkillController = TextEditingController();
+  
+  // Flags to track if "Other" option is selected
+  bool _otherInterestSelected = false;
+  bool _otherSkillSelected = false;
+  
   // Options for dropdowns
-  final List<String> _interestOptions = [
-    'Artificial Intelligence',
-    'Machine Learning',
-    'Web Development',
-    'Mobile Development',
-    'Cloud Computing',
-    'Cybersecurity',
-    'Data Science',
-    'IoT',
-    'Blockchain',
-    'Game Development',
-    'Robotics',
-    'Natural Language Processing'
-  ];
+final List<String> _interestOptions = [
+  // Core & Popular Areas
+  'Artificial Intelligence',
+  'Machine Learning',
+  'Data Science',
+  'Web Development',
+  'Mobile Development',
+  'Game Development',
+  'Software Engineering',
+  'UI/UX Design',
+  'Database Management',
+  'DevOps',
+  'Cloud Computing',
+  'Cybersecurity',
+  'Network Security',
+
+  // Specialized AI Domains
+  'Natural Language Processing',
+  'Computer Vision',
+  'Robotics',
+  'Embedded Systems',
+  'IoT',
+
+  // Emerging Technologies
+  'Blockchain',
+  'Quantum Computing',
+  'Augmented Reality (AR)',
+  'Virtual Reality (VR)',
+  'Mixed Reality (MR)',
+  'Digital Twins',
+  'Edge Computing',
+
+  // Applied Domains
+  'Autonomous Vehicles',
+  'Smart Cities',
+  'Bioinformatics',
+  'FinTech',
+  'HealthTech',
+  'AgriTech',
+  'EdTech',
+
+  // Systems & Hardware
+  'Operating Systems',
+  'Compiler Design',
+  'Big Data Analytics',
+  'Distributed Systems',
+  'Systems Programming',
+  'Computer Architecture',
+  'VLSI Design',
+  'Wearable Technology',
+
+  // Professional/Other
+  'Technical Writing',
+  'Project Management',
+  'Research & Innovation',
+  'Other',
+];
+
   
   final List<String> _skillsOptions = [
     'Flutter',
@@ -59,7 +111,19 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     'NoSQL',
     'HTML/CSS',
     'TensorFlow',
-    'PyTorch'
+    'PyTorch',
+    'Docker',
+    'Kubernetes',
+    'AWS',
+    'Azure',
+    'Google Cloud',
+    'Git',
+    'Firebase',
+    'MongoDB',
+    'TypeScript',
+    'Angular',
+    'Vue.js',
+    'Other'
   ];
 
   bool _isEditing = true; // Start in edit mode
@@ -73,14 +137,31 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     _interestController.dispose();
     _regNoController.dispose();
     _skillsController.dispose();
+    _otherInterestController.dispose();
+    _otherSkillController.dispose();
     super.dispose();
   }
 
   void _saveProfile() async {
     if (_formKey.currentState!.validate()) {
+      // Process custom "Other" options if selected
+      List<String> finalInterests = List.from(_selectedInterests);
+      List<String> finalSkills = List.from(_selectedSkills);
+      
+      // Remove "Other" option and add custom value if provided
+      if (_otherInterestSelected && _otherInterestController.text.isNotEmpty) {
+        finalInterests.remove('Other');
+        finalInterests.add(_otherInterestController.text.trim());
+      }
+      
+      if (_otherSkillSelected && _otherSkillController.text.isNotEmpty) {
+        finalSkills.remove('Other');
+        finalSkills.add(_otherSkillController.text.trim());
+      }
+      
       // Convert lists to strings for storage
-      final interestsString = _selectedInterests.join(', ');
-      final skillsString = _selectedSkills.join(', ');
+      final interestsString = finalInterests.join(', ');
+      final skillsString = finalSkills.join(', ');
       
       await _authService.saveStudentProfile(
         name: _nameController.text.trim(),
@@ -131,13 +212,48 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       String skillsString = profile['skills'] ?? '';
       
       // Parse strings to lists if they exist
-      _selectedInterests = interestsString.isNotEmpty 
+      List<String> interests = interestsString.isNotEmpty 
           ? interestsString.split(', ').where((i) => i.trim().isNotEmpty).toList()
           : [];
           
-      _selectedSkills = skillsString.isNotEmpty 
+      List<String> skills = skillsString.isNotEmpty 
           ? skillsString.split(', ').where((s) => s.trim().isNotEmpty).toList()
           : [];
+      
+      // Process interests - check if any don't match predefined options
+      _selectedInterests = [];
+      List<String> customInterests = [];
+      for (String interest in interests) {
+        if (_interestOptions.contains(interest)) {
+          _selectedInterests.add(interest);
+        } else {
+          customInterests.add(interest);
+        }
+      }
+      
+      // Process skills - check if any don't match predefined options
+      _selectedSkills = [];
+      List<String> customSkills = [];
+      for (String skill in skills) {
+        if (_skillsOptions.contains(skill)) {
+          _selectedSkills.add(skill);
+        } else {
+          customSkills.add(skill);
+        }
+      }
+      
+      // If there are custom values, add "Other" option and set the text controller
+      if (customInterests.isNotEmpty) {
+        _selectedInterests.add('Other');
+        _otherInterestController.text = customInterests.join(', ');
+        _otherInterestSelected = true;
+      }
+      
+      if (customSkills.isNotEmpty) {
+        _selectedSkills.add('Other');
+        _otherSkillController.text = customSkills.join(', ');
+        _otherSkillSelected = true;
+      }
           
       setState(() {
         _nameController.text = profile['name'] ?? '';
@@ -164,7 +280,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     });
   }
 
-  // New method to build dropdown field
+  // New method to build dropdown field with "Other" option
   Widget _buildMultiSelectDropdown({
     required String label,
     required IconData icon,
@@ -174,7 +290,20 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     required Function(List<String>) onChanged,
     String? hintText,
     bool isRequired = false,
+    bool isInterests = false, // Flag to identify if this is interests dropdown
   }) {
+    final bool isOtherSelected = selectedValues.contains('Other');
+    
+    // Set the correct state variable based on dropdown type
+    if (isInterests) {
+      _otherInterestSelected = isOtherSelected;
+    } else {
+      _otherSkillSelected = isOtherSelected;
+    }
+    
+    // Get the correct text controller based on dropdown type
+    final otherController = isInterests ? _otherInterestController : _otherSkillController;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -216,59 +345,111 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             ),
             const SizedBox(height: 12),
             _isEditing
-                ? Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ...options.map((option) {
-                          final isSelected = selectedValues.contains(option);
-                          return FilterChip(
-                            label: Text(
-                              option,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.grey[800],
-                                fontSize: 14,
+                ? Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!, width: 1),
+                        ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ...options.map((option) {
+                              final isSelected = selectedValues.contains(option);
+                              return FilterChip(
+                                label: Text(
+                                  option,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.grey[800],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  List<String> newValues = [...selectedValues];
+                                  if (selected) {
+                                    newValues.add(option);
+                                  } else {
+                                    newValues.remove(option);
+                                  }
+                                  onChanged(newValues);
+                                  setState(() {
+                                    if (isInterests) {
+                                      _otherInterestSelected = newValues.contains('Other');
+                                    } else {
+                                      _otherSkillSelected = newValues.contains('Other');
+                                    }
+                                  });
+                                },
+                                backgroundColor: Colors.grey[100],
+                                selectedColor: iconColor,
+                                checkmarkColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              );
+                            }),
+                            if (isRequired && selectedValues.isEmpty && _isEditing)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Please select at least one option',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              List<String> newValues = [...selectedValues];
-                              if (selected) {
-                                newValues.add(option);
-                              } else {
-                                newValues.remove(option);
-                              }
-                              onChanged(newValues);
-                            },
-                            backgroundColor: Colors.grey[100],
-                            selectedColor: iconColor,
-                            checkmarkColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          );
-                        }),
-                        if (isRequired && selectedValues.isEmpty && _isEditing)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              'Please select at least one option',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: 12,
+                          ],
+                        ),
+                      ),
+                      
+                      // Display text field for "Other" option if selected
+                      if (isOtherSelected) 
+                        Container(
+                          margin: const EdgeInsets.only(top: 10),
+                          child: TextFormField(
+                            controller: otherController,
+                            decoration: InputDecoration(
+                              hintText: isInterests 
+                                  ? 'Specify other research interest' 
+                                  : 'Specify other skill',
+                              hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                  width: 1,
+                                ),
                               ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: iconColor, width: 2),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                  width: 1,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.all(16),
+                              filled: true,
+                              fillColor: Colors.white,
                             ),
+                            validator: isOtherSelected 
+                                ? (value) => value!.isEmpty 
+                                    ? 'Please specify your ${isInterests ? "research interest" : "skill"}' 
+                                    : null
+                                : null,
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   )
                 : Container(
                     width: double.infinity,
@@ -688,6 +869,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       },
                       hintText: 'Select your research interests',
                       isRequired: true,
+                      isInterests: true, // Flag to identify this is interests dropdown
                     ),
 
                     // New field for skills
@@ -703,6 +885,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                         });
                       },
                       hintText: 'Select your skills',
+                      isInterests: false, // Flag to identify this is skills dropdown
                     ),
 
                     _buildFormField(
