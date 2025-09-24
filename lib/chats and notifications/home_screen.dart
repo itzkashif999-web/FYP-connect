@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final role = doc.data()?['role'];
       print('🛠️ User role from Firestore: $role');
       setState(() {
-        isSupervisor = role == 'Supervisor';
+        isSupervisor = role == 'supervisor';
       });
     } catch (e) {
       print('❌ Error fetching role: $e');
