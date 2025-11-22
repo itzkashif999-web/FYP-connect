@@ -6,6 +6,7 @@ import 'package:fyp_connect/screens/Admindashboard/milestone_calendar_page.dart'
 import 'package:fyp_connect/screens/Admindashboard/proposal_list_page.dart';
 import 'package:fyp_connect/screens/Admindashboard/send_notification_page.dart';
 import 'package:fyp_connect/screens/sign_in_page.dart';
+import 'package:fyp_connect/StudentDashboard/metrics_dashboard_page.dart';
 import 'user_list_page.dart';
 
 class AdminDashboard extends StatelessWidget {
@@ -376,6 +377,26 @@ class AdminDashboard extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => ProposalListPage()),
+                        );
+                      },
+                    ),
+
+                    SizedBox(height: 12),
+                    // Recommendation Metrics Button
+                    _buildActionButton(
+                      context,
+                      title: "Recommendation Metrics",
+                      icon: Icons.analytics,
+                      gradient: [
+                        const Color.fromARGB(255, 123, 31, 162),
+                        const Color.fromARGB(255, 186, 104, 200),
+                      ],
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MetricsDashboardPage(),
+                          ),
                         );
                       },
                     ),

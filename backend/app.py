@@ -286,6 +286,101 @@ def calculate_match_percentage(position, total):
         percentage = max(45, 55 - ((position - 5) * 5))
         return percentage
 
+def calculate_precision_at_k(recommendations, accepted_supervisor_id, k=5):
+    """
+    Calculate if accepted supervisor is in top K recommendations
+    recommendations: list of supervisor IDs (ordered by rank)
+    accepted_supervisor_id: supervisor ID that was actually accepted
+    k: number of top recommendations to consider (default 5)
+    Returns: 1 if hit, 0 if miss
+    """
+    if not recommendations or not accepted_supervisor_id:
+        return 0
+    
+    top_k = recommendations[:k]
+    return 1 if accepted_supervisor_id in top_k else 0
+
+def overall_precision_at_k(all_data, k=5):
+    """
+    Calculate overall precision@K across all student recommendations
+    all_data: list of dicts with 'recommendations' and 'accepted_supervisor_id'
+    Returns: precision score between 0 and 1
+    """
+    if not all_data:
+        return 0
+    
+    total = len(all_data)
+    correct = sum(
+        calculate_precision_at_k(d.get('recommendations', []), 
+                                d.get('accepted_supervisor_id'), 
+                                k)
+        for d in all_data
+    )
+    return correct / total if total > 0 else 0
+
+@app.route('/metrics/precision', methods=['POST'])
+def calculate_precision_metrics():
+    """
+    Endpoint to calculate precision metrics for recommendations
+    Expects JSON with array of recommendation outcomes
+    """
+    try:
+        data = request.json
+        outcomes = data.get('outcomes', [])
+        k = data.get('k', 5)  # Default to top 5
+        
+        if not outcomes:
+            return jsonify({"error": "No outcomes provided"}), 400
+        
+        print(f"\n{'='*60}")
+        print(f"📊 Calculating Precision@{k} for {len(outcomes)} outcomes")
+        
+        # Calculate overall precision
+        precision = overall_precision_at_k(outcomes, k)
+        
+        # Calculate by recommendation source
+        ai_outcomes = [o for o in outcomes if o.get('source') == 'ai_rag']
+        pattern_outcomes = [o for o in outcomes if o.get('source') == 'pattern_matching']
+        
+        ai_precision = overall_precision_at_k(ai_outcomes, k) if ai_outcomes else None
+        pattern_precision = overall_precision_at_k(pattern_outcomes, k) if pattern_outcomes else None
+        
+        # Calculate hit rate per position
+        position_hits = {}
+        for outcome in outcomes:
+            recs = outcome.get('recommendations', [])
+            accepted = outcome.get('accepted_supervisor_id')
+            if accepted in recs:
+                position = recs.index(accepted) + 1
+                position_hits[position] = position_hits.get(position, 0) + 1
+        
+        results = {
+            'overall_precision_at_k': precision,
+            'k': k,
+            'total_samples': len(outcomes),
+            'ai_rag_precision': ai_precision,
+            'ai_rag_samples': len(ai_outcomes),
+            'pattern_matching_precision': pattern_precision,
+            'pattern_matching_samples': len(pattern_outcomes),
+            'hits_by_position': position_hits,
+            'percentage': f"{precision * 100:.1f}%"
+        }
+        
+        print(f"✅ Overall Precision@{k}: {precision:.3f} ({precision*100:.1f}%)")
+        if ai_precision is not None:
+            print(f"   AI RAG: {ai_precision:.3f} ({ai_precision*100:.1f}%)")
+        if pattern_precision is not None:
+            print(f"   Pattern: {pattern_precision:.3f} ({pattern_precision*100:.1f}%)")
+        print(f"{'='*60}\n")
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        print(f"❌ Error calculating precision: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_ENV') == 'development'

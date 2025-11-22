@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../auth/auth_service.dart'; // replace with your actual path
+import 'recommendation_tracking_service.dart';
 
 class SubmitProposalPage extends StatefulWidget {
   final String supervisorName;
@@ -26,6 +27,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
       TextEditingController(); // New field
 
   final AuthService _authService = AuthService();
+  final RecommendationTrackingService _trackingService = RecommendationTrackingService();
   bool _isSubmitting = false;
 
   List<Map<String, String>> _availableStudents = [];
@@ -146,6 +148,11 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
             _projectTitleController.text.trim(),
           );
         }
+
+        // Track supervisor acceptance for precision calculation
+        await _trackingService.trackSupervisorAccepted(
+          supervisorId: widget.supervisorId,
+        );
 
         setState(() => _isSubmitting = false);
 

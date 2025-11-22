@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fyp_connect/StudentDashboard/recommendation_service.dart';
+import 'package:fyp_connect/StudentDashboard/recommendation_tracking_service.dart';
 import 'package:fyp_connect/StudentDashboard/submit_proposal_page.dart';
 import 'package:fyp_connect/StudentDashboard/widgets/supervisor_profile_sheet.dart';
 
@@ -14,6 +15,7 @@ class AIRecommendationPage extends StatefulWidget {
 
 class _AIRecommendationPageState extends State<AIRecommendationPage> {
   final RecommendationService _recommendationService = RecommendationService();
+  final RecommendationTrackingService _trackingService = RecommendationTrackingService();
   bool _isLoading = true;
   List<Map<String, dynamic>> _recommendations = [];
   String _errorMessage = '';
@@ -76,6 +78,15 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
         _recommendations = recommendations;
         _isLoading = false;
       });
+
+      // Track recommendations shown to user
+      if (recommendations.isNotEmpty) {
+        final source = recommendations.first['recommendationSource'] ?? 'pattern_matching';
+        await _trackingService.trackRecommendationsShown(
+          recommendations: recommendations,
+          source: source,
+        );
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
