@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fyp_connect/StudentDashboard/meetings_page.dart';
-import 'package:fyp_connect/chats%20and%20notifications/notifications/services/send_notification_service.dart';
+
 
 import 'package:intl/intl.dart';
 
@@ -19,7 +19,6 @@ class _ScheduleMeetingPageState extends State<ScheduleMeetingPage> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   final _purposeController = TextEditingController();
-  final bool _showRequestedMeetings = false;
 
   @override
   void dispose() {
@@ -367,14 +366,67 @@ class _ScheduleMeetingPageState extends State<ScheduleMeetingPage> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () async {
+                          if (_selectedDate == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please select a date first'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          TimeOfDay initialTime = const TimeOfDay(
+                            hour: 10,
+                            minute: 0,
+                          );
+
+                          // If selected date is today, use current time or next 15 min as initial time
+                          final now = TimeOfDay.now();
+                          final today = DateTime.now();
+                          if (_selectedDate!.year == today.year &&
+                              _selectedDate!.month == today.month &&
+                              _selectedDate!.day == today.day) {
+                            initialTime = now.replacing(
+                              minute:
+                                  (now.minute + 15 - (now.minute % 15)) % 60,
+                            );
+                          }
+
                           final time = await showTimePicker(
                             context: context,
-                            initialTime: const TimeOfDay(hour: 10, minute: 0),
+                            initialTime: initialTime,
                           );
+
                           if (time != null) {
+                            // If date is today, block selecting time before current time
+                            if (_selectedDate!.year == today.year &&
+                                _selectedDate!.month == today.month &&
+                                _selectedDate!.day == today.day) {
+                              final pickedDateTime = DateTime(
+                                today.year,
+                                today.month,
+                                today.day,
+                                time.hour,
+                                time.minute,
+                              );
+                              if (pickedDateTime.isBefore(DateTime.now())) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Cannot select past time for today',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+
                             setState(() => _selectedTime = time);
                           }
                         },
+
                         child: Padding(
                           padding: const EdgeInsets.all(20),
                           child: Row(

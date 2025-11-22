@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class SupervisorProfileSheet extends StatelessWidget {
   final Map<String, dynamic> supervisor;
 
-  const SupervisorProfileSheet({Key? key, required this.supervisor}) : super(key: key);
+  const SupervisorProfileSheet({super.key, required this.supervisor});
 
   Widget _buildStarRating(double rating) {
     return Row(
@@ -13,8 +13,8 @@ class SupervisorProfileSheet extends StatelessWidget {
           index < rating.floor()
               ? Icons.star
               : index < rating
-                  ? Icons.star_half
-                  : Icons.star_border,
+              ? Icons.star_half
+              : Icons.star_border,
           color: Colors.amber,
           size: 16,
         );
@@ -55,26 +55,29 @@ class SupervisorProfileSheet extends StatelessWidget {
     final name = supervisor['name'] ?? 'Unknown Supervisor';
     final department = supervisor['department'] ?? 'Department not specified';
     final specialization = supervisor['specialization'] ?? 'Not specified';
-    final preferenceAreas = supervisor['preferenceAreas'] ?? '';
+    //  final preferenceAreas = supervisor['preferenceAreas'] ?? '';
     final projectHistory = supervisor['projectsHistory'] ?? 'Not available';
-    final rating = supervisor['rating'] != null
-        ? (supervisor['rating'] as num).toDouble()
-        : 4.0;
+    final rating =
+        supervisor['rating'] != null
+            ? (supervisor['rating'] as num).toDouble()
+            : 4.0;
 
     // Extract specializations for tags
     List<String> specializations = [];
     if (supervisor['preferenceAreas'] != null) {
       if (supervisor['preferenceAreas'] is String) {
-        specializations = supervisor['preferenceAreas']
-            .toString()
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
+        specializations =
+            supervisor['preferenceAreas']
+                .toString()
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
       } else if (supervisor['preferenceAreas'] is List) {
-        specializations = (supervisor['preferenceAreas'] as List)
-            .map((s) => s.toString())
-            .toList();
+        specializations =
+            (supervisor['preferenceAreas'] as List)
+                .map((s) => s.toString())
+                .toList();
       }
     }
 
@@ -108,11 +111,7 @@ class SupervisorProfileSheet extends StatelessWidget {
                 const CircleAvatar(
                   radius: 40,
                   backgroundColor: Color.fromARGB(255, 24, 81, 91),
-                  child: Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                  child: Icon(Icons.person, color: Colors.white, size: 40),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
@@ -129,10 +128,7 @@ class SupervisorProfileSheet extends StatelessWidget {
                       ),
                       Text(
                         department,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -155,20 +151,33 @@ class SupervisorProfileSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 30),
-            // Show Preference Areas if present
-            if (supervisor['preferenceAreas'] != null && supervisor['preferenceAreas'].toString().isNotEmpty)
-              _buildDetailRow('Preference Areas', supervisor['preferenceAreas'] is List ? (supervisor['preferenceAreas'] as List).join(', ') : supervisor['preferenceAreas'].toString()),
+
             // Show Project Categories if present
-            if (supervisor['projectHistoryCategories'] != null && supervisor['projectHistoryCategories'].toString().isNotEmpty)
-              _buildDetailRow('Project Categories', supervisor['projectHistoryCategories'] is List ? (supervisor['projectHistoryCategories'] as List).join(', ') : supervisor['projectHistoryCategories'].toString()),
+            if (supervisor['projectHistoryCategories'] != null &&
+                supervisor['projectHistoryCategories'].toString().isNotEmpty)
+              _buildDetailRow(
+                'Project Categories',
+                supervisor['projectHistoryCategories'] is List
+                    ? (supervisor['projectHistoryCategories'] as List).join(
+                      ', ',
+                    )
+                    : supervisor['projectHistoryCategories'].toString(),
+              ),
             // Show Specializations if present
-            if (supervisor['specializations'] != null && supervisor['specializations'].toString().isNotEmpty)
-              _buildDetailRow('Specializations', supervisor['specializations'] is List ? (supervisor['specializations'] as List).join(', ') : supervisor['specializations'].toString()),
+            if (supervisor['specializations'] != null &&
+                supervisor['specializations'].toString().isNotEmpty)
+              _buildDetailRow(
+                'Specializations',
+                supervisor['specializations'] is List
+                    ? (supervisor['specializations'] as List).join(', ')
+                    : supervisor['specializations'].toString(),
+              ),
             // Already present:
             _buildDetailRow('Specialization', specialization),
             _buildDetailRow('Projects History', projectHistory),
             // AI Match Reason
-            if (supervisor['matchReason'] != null && supervisor['matchReason'].toString().isNotEmpty)
+            if (supervisor['matchReason'] != null &&
+                supervisor['matchReason'].toString().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 child: Column(
@@ -194,10 +203,7 @@ class SupervisorProfileSheet extends StatelessWidget {
                       ),
                       child: Text(
                         supervisor['matchReason'].toString(),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[800],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[800]),
                       ),
                     ),
                   ],
@@ -217,27 +223,42 @@ class SupervisorProfileSheet extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: specializations.map((spec) => Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 133, 213, 231).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(
-                      color: const Color.fromARGB(255, 133, 213, 231).withOpacity(0.2),
-                    ),
-                  ),
-                  child: Text(
-                    spec,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color.fromARGB(255, 24, 81, 91),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                )).toList(),
+                children:
+                    specializations
+                        .map(
+                          (spec) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(
+                                255,
+                                133,
+                                213,
+                                231,
+                              ).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(
+                                color: const Color.fromARGB(
+                                  255,
+                                  133,
+                                  213,
+                                  231,
+                                ).withOpacity(0.2),
+                              ),
+                            ),
+                            child: Text(
+                              spec,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color.fromARGB(255, 24, 81, 91),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
               ),
             ],
           ],

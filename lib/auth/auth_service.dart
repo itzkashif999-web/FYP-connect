@@ -27,20 +27,21 @@ class AuthService {
         print("User document doesn't exist in Firestore");
         // Try to recreate the user document using the signup information if possible
         // But don't default to student - let's try to get the original role if it's in auth claims
-        
+
         // Get the user's display name
-        String displayName = credential.user!.displayName ?? email.split('@')[0];
-        
+        String displayName =
+            credential.user!.displayName ?? email.split('@')[0];
+
         // Create a new timestamp
         final now = DateTime.now();
-        
+
         // Try to check if we have a custom claim for role
         await credential.user!.getIdTokenResult(true);
-        
+
         // Default role is now going to be supervisor for testing purposes
         // You may want to change this based on your application's requirements
         String defaultRole = 'supervisor';
-        
+
         await firestore.collection('users').doc(credential.user!.uid).set({
           'email': email,
           'name': displayName,
@@ -50,7 +51,7 @@ class AuthService {
           'isOnline': true,
           'lastActive': now,
         });
-        
+
         print("Created new user document with role: $defaultRole");
         return {'credential': credential, 'role': defaultRole};
       }
@@ -64,7 +65,7 @@ class AuthService {
         await firestore.collection('users').doc(credential.user!.uid).update({
           'role': defaultRole,
         });
-        
+
         print("Updated user document with role: $defaultRole");
         return {'credential': credential, 'role': defaultRole};
       }
@@ -85,7 +86,7 @@ class AuthService {
   }) async {
     try {
       print("Starting signup process for: $email with role: $role");
-      
+
       final credential = await firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -99,7 +100,7 @@ class AuthService {
       final now = DateTime.now();
       NotificationService notificationService = NotificationService();
       String? userDeviceToken = await notificationService.getDeviceToken();
-      
+
       // Add ChatUser data to 'users' collection
       final chatUser = ChatUser(
         image: '', // Default or allow upload later
@@ -120,19 +121,16 @@ class AuthService {
 
       // Make sure role is explicitly set and visible in logs
       print("Setting role to: '$role' for user: $uid");
-      
+
       // Create a merged userData map with role explicitly set
-      final userData = {
-        ...chatUser.toJson(),
-        'role': role,
-      };
-      
+      final userData = {...chatUser.toJson(), 'role': role};
+
       print("Saving user data with role '$role' to Firestore");
       await firestore.collection('users').doc(uid).set(userData);
-      
+
       // Add a delay before verifying to ensure Firestore has time to update
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Verify that the data was saved correctly
       final savedDoc = await firestore.collection('users').doc(uid).get();
       if (savedDoc.exists) {
@@ -148,7 +146,7 @@ class AuthService {
         // Try to create the document again
         await firestore.collection('users').doc(uid).set(userData);
       }
-      
+
       return credential;
     } catch (e) {
       print("Error in signUp: $e");
@@ -264,7 +262,8 @@ class AuthService {
     required String specialization,
     required String id, // faculty id
     String? preferenceAreas, // New field for preference areas
-    String? projectHistoryCategories, // New field for project history categories
+    String?
+    projectHistoryCategories, // New field for project history categories
     String? projectCount, // New field for project count
   }) async {
     final user = firebaseAuth.currentUser;
@@ -282,8 +281,11 @@ class AuthService {
           'department': department,
           'projectsHistory': projectsHistory,
           'specialization': specialization,
-          'preferenceAreas': preferenceAreas ?? '', // Add new preference areas field
-          'projectHistoryCategories': projectHistoryCategories ?? '', // Add new project history categories field
+          'preferenceAreas':
+              preferenceAreas ?? '', // Add new preference areas field
+          'projectHistoryCategories':
+              projectHistoryCategories ??
+              '', // Add new project history categories field
           'projectCount': projectCount ?? '0', // Add project count field
           'createdAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
@@ -307,79 +309,151 @@ class AuthService {
     return null;
   }
 
-  Future<String> submitProposal({
-    required String studentName,
-    required String regNo,
-    required String groupMembers,
-    required String projectTitle,
-    required String projectProposal,
-    required String supervisorName,
-    required String facultyId, // Custom faculty ID
-    required String fileUrl,
-    required String status,
-  }) async {
-    final studentUser = firebaseAuth.currentUser;
+  // Future<String> submitProposal({
+  //   required String studentName,
+  //   required String regNo,
+  //   required String groupMembers,
+  //   required String projectTitle,
 
-    if (studentUser == null) {
-      throw FirebaseAuthException(
-        code: 'not-authenticated',
-        message: 'Student must be logged in to submit a proposal.',
-      );
-    }
+  //   required String supervisorName,
+  //   required String facultyId, // Custom faculty ID
+  //   required String fileUrl,
+  //   required String status,
+  // }) async {
+  //   final studentUser = firebaseAuth.currentUser;
 
-    // Find supervisor by facultyId
-    final supervisorQuery =
-        await firestore
-            .collection('supervisor_profiles')
-            .where('id', isEqualTo: facultyId.trim())
-            .limit(1)
-            .get();
+  //   if (studentUser == null) {
+  //     throw FirebaseAuthException(
+  //       code: 'not-authenticated',
+  //       message: 'Student must be logged in to submit a proposal.',
+  //     );
+  //   }
 
-    if (supervisorQuery.docs.isEmpty) {
-      throw FirebaseAuthException(
-        code: 'supervisor-not-found',
-        message: 'No supervisor found with that faculty ID.',
-      );
-    }
+  //   // Find supervisor by facultyId
+  //   final supervisorQuery =
+  //       await firestore
+  //           .collection('supervisor_profiles')
+  //           .where('id', isEqualTo: facultyId.trim())
+  //           .limit(1)
+  //           .get();
 
-    final supervisorDoc = supervisorQuery.docs.first;
-    final supervisorUid = supervisorDoc['userId']; // ✅ real UID
+  //   if (supervisorQuery.docs.isEmpty) {
+  //     throw FirebaseAuthException(
+  //       code: 'supervisor-not-found',
+  //       message: 'No supervisor found with that faculty ID.',
+  //     );
+  //   }
 
-    final docRef = await firestore.collection('proposals').add({
-      'studentId': studentUser.uid,
-      'studentName': studentName,
-      'registrationNumber': regNo,
-      'groupMembers': groupMembers,
-      'projectTitle': projectTitle,
-      'projectProposal': projectProposal,
-      'supervisorName': supervisorName.trim(),
-      'facultyId': facultyId.trim(),
-      'supervisorId': supervisorUid, // ✅ Now real UID
-      'fileUrl': fileUrl,
-      'status': status,
-      'submittedAt': FieldValue.serverTimestamp(),
-    });
-    return docRef.id;
+  //   final supervisorDoc = supervisorQuery.docs.first;
+  //   final supervisorUid = supervisorDoc['userId']; // ✅ real UID
+
+  //   final docRef = await firestore.collection('proposals').add({
+  //     'studentId': studentUser.uid,
+  //     'studentName': studentName,
+  //     'registrationNumber': regNo,
+  //     'groupMembers': groupMembers,
+  //     'projectTitle': projectTitle,
+  //     'supervisorName': supervisorName.trim(),
+  //     'facultyId': facultyId.trim(),
+  //     'supervisorId': supervisorUid, // ✅ Now real UID
+  //     'fileUrl': fileUrl,
+  //     'status': status,
+  //     'submittedAt': FieldValue.serverTimestamp(),
+  //   });
+  //   return docRef.id;
+  // }
+
+  // Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  // fetchProposalsForSupervisor() async {
+  //   final supervisorId = firebaseAuth.currentUser?.uid;
+  //   if (supervisorId == null) {
+  //     throw FirebaseAuthException(
+  //       code: 'not-authenticated',
+  //       message: 'Supervisor not logged in.',
+  //     );
+  //   }
+
+  //   final snapshot =
+  //       await firestore
+  //           .collection('proposals')
+  //           .where('supervisorId', isEqualTo: supervisorId)
+  //           .get();
+
+  //   return snapshot.docs;
+  // }
+Future<String> submitProposal({
+  required String studentName,
+  required String regNo,
+  required String groupMembers,
+  required String projectTitle,
+  required String projectDescription, // NEW FIELD
+
+  required String supervisorName,
+  required String facultyId, // Custom faculty ID
+  required String fileUrl,
+  required String status,
+}) async {
+  final studentUser = firebaseAuth.currentUser;
+
+  if (studentUser == null) {
+    throw FirebaseAuthException(
+      code: 'not-authenticated',
+      message: 'Student must be logged in to submit a proposal.',
+    );
   }
 
-  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
-  fetchProposalsForSupervisor() async {
-    final supervisorId = firebaseAuth.currentUser?.uid;
-    if (supervisorId == null) {
-      throw FirebaseAuthException(
-        code: 'not-authenticated',
-        message: 'Supervisor not logged in.',
-      );
-    }
+  // Find supervisor by facultyId
+  final supervisorQuery =
+      await firestore
+          .collection('supervisor_profiles')
+          .where('id', isEqualTo: facultyId.trim())
+          .limit(1)
+          .get();
 
-    final snapshot =
-        await firestore
-            .collection('proposals')
-            .where('supervisorId', isEqualTo: supervisorId)
-            .get();
-
-    return snapshot.docs;
+  if (supervisorQuery.docs.isEmpty) {
+    throw FirebaseAuthException(
+      code: 'supervisor-not-found',
+      message: 'No supervisor found with that faculty ID.',
+    );
   }
+
+  final supervisorDoc = supervisorQuery.docs.first;
+  final supervisorUid = supervisorDoc['userId']; // ✅ real UID
+
+  final docRef = await firestore.collection('proposals').add({
+    'studentId': studentUser.uid,
+    'studentName': studentName,
+    'registrationNumber': regNo,
+    'groupMembers': groupMembers,
+    'projectTitle': projectTitle,
+    'projectDescription': projectDescription, // ✅ Save description
+    'supervisorName': supervisorName.trim(),
+    'facultyId': facultyId.trim(),
+    'supervisorId': supervisorUid, // ✅ real UID
+    'fileUrl': fileUrl,
+    'status': status,
+    'submittedAt': FieldValue.serverTimestamp(),
+  });
+
+  return docRef.id;
+}
+
+Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> fetchProposalsForSupervisor() async {
+  final supervisorId = firebaseAuth.currentUser?.uid;
+  if (supervisorId == null) {
+    throw FirebaseAuthException(
+      code: 'not-authenticated',
+      message: 'Supervisor not logged in.',
+    );
+  }
+
+  final snapshot = await firestore
+      .collection('proposals')
+      .where('supervisorId', isEqualTo: supervisorId)
+      .get();
+
+  return snapshot.docs;
+}
 
   Future<void> createProjectFromProposal({
     required String proposalId,
@@ -413,5 +487,4 @@ class AuthService {
       rethrow;
     }
   }
-
-  }
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp_connect/screens/Admindashboard/Unassign_page.dart';
+import 'package:fyp_connect/screens/Admindashboard/add_user_page.dart';
 import 'package:fyp_connect/screens/Admindashboard/milestone_calendar_page.dart';
 import 'package:fyp_connect/screens/Admindashboard/proposal_list_page.dart';
 import 'package:fyp_connect/screens/Admindashboard/send_notification_page.dart';
@@ -202,7 +203,7 @@ class AdminDashboard extends StatelessWidget {
                             "Total Students",
                             FirebaseFirestore.instance
                                 .collection('users')
-                                .where('role', isEqualTo: 'Student')
+                                .where('role', isEqualTo: 'student')
                                 .snapshots(),
                             [
                               Colors.orange.shade400,
@@ -214,7 +215,7 @@ class AdminDashboard extends StatelessWidget {
                             "Total Supervisors",
                             FirebaseFirestore.instance
                                 .collection('users')
-                                .where('role', isEqualTo: 'Supervisor')
+                                .where('role', isEqualTo: 'supervisor')
                                 .snapshots(),
                             [primaryLight, primaryDark],
                             Icons.supervisor_account,
@@ -284,6 +285,25 @@ class AdminDashboard extends StatelessWidget {
                       },
                     ),
 
+                    SizedBox(height: 12),
+                    // Add Student/Supervisor Button
+                    _buildActionButton(
+                      context,
+                      title: "Add User",
+                      icon: Icons.person_add,
+                      gradient: [
+                        const Color.fromARGB(255, 40, 167, 69),
+                        const Color.fromARGB(255, 144, 238, 144),
+                      ],
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddUserPage(),
+                          ),
+                        );
+                      },
+                    ),
                     SizedBox(height: 12),
 
                     // Send Notifications Button

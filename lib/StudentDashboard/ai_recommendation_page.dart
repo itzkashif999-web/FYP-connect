@@ -18,54 +18,8 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
   List<Map<String, dynamic>> _recommendations = [];
   String _errorMessage = '';
   bool _canApply = true;
-  
-  // Helper method to build star rating
-  Widget _buildStarRating(double rating) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (index) {
-        return Icon(
-          index < rating.floor() 
-              ? Icons.star 
-              : index < rating 
-              ? Icons.star_half 
-              : Icons.star_border,
-          color: Colors.amber,
-          size: 16,
-        );
-      }),
-    );
-  }
-  
-  // Helper method to build detail rows
-  Widget _buildDetailRow(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color.fromARGB(255, 24, 81, 91),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
+
+ 
   // Show supervisor details in a modal bottom sheet
   void _showSupervisorDetails(Map<String, dynamic> supervisor) {
     showModalBottomSheet(
@@ -75,10 +29,6 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
       builder: (context) => SupervisorProfileSheet(supervisor: supervisor),
     );
   }
-  //     backgroundColor: Colors.transparent,
-  //     builder: (context) => SupervisorProfileSheet(supervisor: supervisorData),
-  //   );
-  // }
 
   @override
   void initState() {
@@ -107,8 +57,7 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
           }
 
           setState(() {
-            _canApply =
-                !hasPendingOrAccepted; 
+            _canApply = !hasPendingOrAccepted;
           });
         });
   }
@@ -590,7 +539,8 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                             children: [
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () => _showSupervisorDetails(supervisor),
+                                  onPressed:
+                                      () => _showSupervisorDetails(supervisor),
                                   icon: const Icon(Icons.visibility, size: 16),
                                   label: const Text('View Profile'),
                                   style: OutlinedButton.styleFrom(

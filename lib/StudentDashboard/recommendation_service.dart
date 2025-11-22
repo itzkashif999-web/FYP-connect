@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
 
 class RecommendationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -129,14 +128,18 @@ class RecommendationService {
     // Fallback to pattern matching if AI isn't available or fails
     if (recommendations.isEmpty) {
       print("⚠️ Using fallback pattern-matching recommendations");
-      recommendations = await _getPatternMatchingRecommendations(student, supervisors);
+      recommendations = await _getPatternMatchingRecommendations(
+        student,
+        supervisors,
+      );
     }
 
     // Filter out supervisors with 0% matchPercentage, then return top 5
-    final filtered = recommendations.where((rec) {
-      final percent = rec['matchPercentage'] ?? 0;
-      return percent > 0;
-    }).toList();
+    final filtered =
+        recommendations.where((rec) {
+          final percent = rec['matchPercentage'] ?? 0;
+          return percent > 0;
+        }).toList();
     return filtered.take(5).toList();
   }
 

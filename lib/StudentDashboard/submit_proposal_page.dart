@@ -1,12 +1,7 @@
-import 'dart:io';
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:fyp_connect/auth/auth_service.dart';
-import 'package:fyp_connect/auth/cloudinary_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fyp_connect/chats%20and%20notifications/notifications/services/send_notification_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../auth/auth_service.dart'; // replace with your actual path
 
 class SubmitProposalPage extends StatefulWidget {
   final String supervisorName;
@@ -24,242 +19,135 @@ class SubmitProposalPage extends StatefulWidget {
 
 class _SubmitProposalPageState extends State<SubmitProposalPage> {
   final _formKey = GlobalKey<FormState>();
-  final _studentNameController = TextEditingController();
-  final _regNoController = TextEditingController();
-  final _groupMembersController = TextEditingController();
-  final _projectTitleController = TextEditingController();
-  final _proposalController = TextEditingController();
+  final TextEditingController _studentNameController = TextEditingController();
+  final TextEditingController _regNoController = TextEditingController();
+  final TextEditingController _projectTitleController = TextEditingController();
+  final TextEditingController _projectDescriptionController =
+      TextEditingController(); // New field
+
   final AuthService _authService = AuthService();
-
-  File? _selectedFile;
-  final CloudinaryService _cloudinaryService = CloudinaryService();
-
-  String? _uploadedFileName;
   bool _isSubmitting = false;
+
+  List<Map<String, String>> _availableStudents = [];
+  final List<String?> _selectedMemberUids = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStudentInfo();
+    _loadStudents();
+  }
+
+  Future<void> _loadStudentInfo() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists) {
+        setState(() {
+          _studentNameController.text = doc['name'] ?? '';
+          _regNoController.text = doc['registrationNo'] ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading student info: $e');
+    }
+  }
+
+  Future<void> _loadStudents() async {
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+      List<Map<String, String>> students = [];
+
+      final snapshot =
+          await FirebaseFirestore.instance.collection('addusers').get();
+
+      for (var doc in snapshot.docs) {
+        final studentsSnap =
+            await doc.reference.collection('add_students').get();
+        for (var sDoc in studentsSnap.docs) {
+          final studentUid = sDoc['uid'] ?? '';
+          if (studentUid != currentUserId) {
+            students.add({
+              'name': sDoc['name'] ?? '',
+              'regNo': sDoc['registrationNo'] ?? '',
+              'uid': studentUid,
+            });
+          }
+        }
+      }
+
+      setState(() {
+        _availableStudents = students;
+      });
+    } catch (e) {
+      debugPrint("❌ Error loading students: $e");
+    }
+  }
 
   @override
   void dispose() {
     _studentNameController.dispose();
     _regNoController.dispose();
-    _groupMembersController.dispose();
     _projectTitleController.dispose();
-    _proposalController.dispose();
+    _projectDescriptionController.dispose(); // Dispose new field
     super.dispose();
-  }
-
-  Future<void> _pickFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx'],
-      );
-
-      if (result != null && result.files.single.path != null) {
-        setState(() {
-          _uploadedFileName = result.files.single.name;
-          _selectedFile = File(result.files.single.path!);
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.white, size: 20),
-              SizedBox(width: 12),
-              Text('Error selecting file'),
-            ],
-          ),
-          backgroundColor: Colors.red[600],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-    }
-  }
-
-  Future<void> updateProposalStatus(String docId, String status) async {
-    try {
-      final proposalDoc =
-          await FirebaseFirestore.instance
-              .collection('proposals')
-              .doc(docId)
-              .get();
-
-      if (!proposalDoc.exists) return;
-
-      final data = proposalDoc.data()!;
-      final studentName =
-          FirebaseAuth.instance.currentUser?.displayName ?? 'Supervisor';
-
-      final supervisorId = data['supervisorId'] ?? '';
-
-      // 2️⃣ Notify only this supervisor
-      if (supervisorId.isNotEmpty) {
-        final supervisorDoc =
-            await FirebaseFirestore.instance
-                .collection('students')
-                .doc(supervisorId)
-                .get();
-
-        final token = supervisorDoc.data()?['pushToken'] ?? '';
-
-        if (token.isNotEmpty) {
-          await SendNotificationService.sendNotificationUsingApi(
-            token: token,
-            title: 'Proposal $status',
-            body: 'New Proposal sent by $studentName.',
-            data: {'screen': 'proposal'},
-          );
-        }
-
-        await FirebaseFirestore.instance
-            .collection('notifications')
-            .doc(supervisorId)
-            .collection('notifications')
-            .add({
-              'title': 'Proposal $status',
-              'body': 'New Proposal sent by $studentName.',
-              'isSeen': false,
-              'createdAt': FieldValue.serverTimestamp(),
-            });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
-    }
   }
 
   Future<void> _submitProposal() async {
     if (_formKey.currentState!.validate()) {
-      if (_uploadedFileName == null) {
+      if (_selectedMemberUids.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.white, size: 20),
-                SizedBox(width: 12),
-                Text('Please upload your proposal file'),
-              ],
-            ),
-            backgroundColor: Colors.red[600],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.all(16),
+          const SnackBar(
+            content: Text('Please select at least 1 group member'),
+            backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
       try {
-        setState(() {
-          _isSubmitting = true;
-        });
+        setState(() => _isSubmitting = true);
 
-        String? uploadedUrl;
+        // Convert selected UIDs to student info string
+        final groupMembersText = _selectedMemberUids
+            .map((uid) {
+              final student = _availableStudents.firstWhere(
+                (s) => s['uid'] == uid,
+              );
+              return '${student['name']} - ${student['regNo']}';
+            })
+            .join('\n');
 
-        if (_selectedFile != null) {
-          uploadedUrl = await _cloudinaryService.uploadFile(_selectedFile!);
-        }
-
-        if (uploadedUrl == null) {
-          setState(() => _isSubmitting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('File upload failed'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-
-        // Submit proposal with status 'pending'
         final proposalId = await _authService.submitProposal(
           studentName: _studentNameController.text.trim(),
           regNo: _regNoController.text.trim(),
-          groupMembers: _groupMembersController.text.trim(),
+          groupMembers: groupMembersText,
           projectTitle: _projectTitleController.text.trim(),
-          projectProposal: _proposalController.text.trim(),
+          projectDescription:
+              _projectDescriptionController.text.trim(), // Added field
           supervisorName: widget.supervisorName,
-          facultyId: widget.supervisorId, // e.g., "Fac-65"
-          fileUrl: uploadedUrl,
+          facultyId: widget.supervisorId,
+          fileUrl: '',
           status: 'pending',
         );
 
-        // -----------------------------
-        // SEND NOTIFICATION TO SUPERVISOR
-        // -----------------------------
-        try {
-          final studentName = _studentNameController.text.trim();
-          final projectTitle = _projectTitleController.text.trim();
+        final supervisorProfile =
+            await FirebaseFirestore.instance
+                .collection('supervisor_profiles')
+                .doc(widget.supervisorId)
+                .get();
 
-          // 1️⃣ Get supervisor UID using facultyId
-          final supervisorProfile =
-              await FirebaseFirestore.instance
-                  .collection('supervisor_profiles')
-                  .doc(widget.supervisorId) // docId = facultyId (e.g. "Fac-65")
-                  .get();
-
-          if (!supervisorProfile.exists) {
-            debugPrint(
-              "❌ Supervisor profile not found for facultyId: ${widget.supervisorId}",
-            );
-            return;
-          }
-
-          final supervisorUid = supervisorProfile.data()?['userId'];
-          if (supervisorUid == null || supervisorUid.isEmpty) {
-            debugPrint(
-              "❌ Supervisor UID missing in profile: ${widget.supervisorId}",
-            );
-            return;
-          }
-
-          // 2️⃣ Save Firestore notification under supervisor UID
-          await FirebaseFirestore.instance
-              .collection('notifications')
-              .doc(supervisorUid) // ✅ correct place
-              .collection('notifications')
-              .add({
-                'title': 'New Proposal Request',
-                'body': '$studentName submitted a proposal "$projectTitle"',
-                'isSeen': false,
-                'createdAt': FieldValue.serverTimestamp(),
-                'proposalId': proposalId,
-              });
-
-          // 3️⃣ Push notification
-          final supervisorDoc =
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(supervisorUid)
-                  .get();
-
-          final pushToken = supervisorDoc.data()?['pushToken'] ?? '';
-
-          if (pushToken.isNotEmpty) {
-            await SendNotificationService.sendNotificationUsingApi(
-              token: pushToken,
-              title: 'New Proposal Request',
-              body: '$studentName submitted a proposal "$projectTitle"',
-              data: {'screen': 'proposal_requests'},
-            );
-          }
-
-          debugPrint("✅ Notification sent to supervisor UID: $supervisorUid");
-        } catch (e) {
-          debugPrint('❌ Supervisor notification error: $e');
+        final supervisorUid = supervisorProfile.data()?['userId'] ?? '';
+        if (supervisorUid.isNotEmpty) {
+          _sendProposalNotificationToSupervisor(
+            supervisorUid,
+            proposalId,
+            _projectTitleController.text.trim(),
+          );
         }
 
-        setState(() {
-          _isSubmitting = false;
-        });
+        setState(() => _isSubmitting = false);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -270,7 +158,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                 Text('Proposal submitted successfully! 🎉'),
               ],
             ),
-            backgroundColor: Colors.green[600],
+            backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -279,14 +167,12 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
           ),
         );
 
-        Future.delayed(const Duration(seconds: 1), () {
-          Navigator.pop(context);
-        });
+        Future.delayed(
+          const Duration(seconds: 1),
+          () => Navigator.pop(context),
+        );
       } catch (e) {
-        setState(() {
-          _isSubmitting = false;
-        });
-
+        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
@@ -296,7 +182,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                 Text('Submission failed. Try again.'),
               ],
             ),
-            backgroundColor: Colors.red[600],
+            backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -305,6 +191,40 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
           ),
         );
       }
+    }
+  }
+
+  void _sendProposalNotificationToSupervisor(
+    String supervisorId,
+    String proposalId,
+    String projectTitle,
+  ) async {
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (supervisorId == currentUserId) return;
+
+      final notificationRef = FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(supervisorId)
+          .collection('notifications')
+          .doc(proposalId);
+
+      final studentDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserId)
+              .get();
+      final studentName = studentDoc.data()?['name'] ?? 'A student';
+
+      await notificationRef.set({
+        'title': 'New Proposal Request',
+        'body': '$studentName submitted a proposal request "$projectTitle"',
+        'isSeen': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'proposalId': proposalId,
+      });
+    } catch (e) {
+      debugPrint("❌ Error sending proposal notification: $e");
     }
   }
 
@@ -317,6 +237,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
     String? Function(String?)? validator,
     TextInputType? keyboardType,
     int maxLines = 1,
+    bool readOnly = false,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -363,6 +284,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
               validator: validator,
               keyboardType: keyboardType,
               maxLines: maxLines,
+              readOnly: readOnly,
               style: const TextStyle(fontSize: 16),
               decoration: InputDecoration(
                 hintText: hintText ?? 'Enter $label',
@@ -398,13 +320,66 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
     );
   }
 
+  Widget _buildGroupMemberDropdown(int index) {
+    String? selectedUid =
+        index < _selectedMemberUids.length ? _selectedMemberUids[index] : null;
+
+    List<DropdownMenuItem<String>> items =
+        _availableStudents
+            .where(
+              (s) =>
+                  !(_selectedMemberUids.contains(s['uid']) &&
+                      s['uid'] != selectedUid),
+            )
+            .map(
+              (student) => DropdownMenuItem<String>(
+                value: student['uid'],
+                child: Text('${student['name']} - ${student['regNo']}'),
+              ),
+            )
+            .toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: DropdownButtonFormField<String>(
+        hint: Text('Select Member ${index + 1}'),
+        value: selectedUid,
+        items: items,
+        onChanged: (value) {
+          if (value == null) return;
+          setState(() {
+            if (index < _selectedMemberUids.length) {
+              _selectedMemberUids[index] = value;
+            } else {
+              _selectedMemberUids.add(value);
+            }
+          });
+        },
+        validator:
+            (value) => value == null ? 'Select member ${index + 1}' : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text(
-          'Submit Proposal',
+          'Submit Proposal Request',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -414,14 +389,9 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
         backgroundColor: const Color.fromARGB(255, 24, 81, 91),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: Column(
         children: [
-          // Header Section
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -459,7 +429,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Submit Your Proposal',
+                          'Submit Your Proposal Request',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -480,9 +450,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
               ),
             ),
           ),
-
           const SizedBox(height: 24),
-
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -490,7 +458,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Supervisor Info Card
+                    // Student info card
                     Container(
                       margin: const EdgeInsets.only(bottom: 24),
                       padding: const EdgeInsets.all(20),
@@ -553,45 +521,22 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                         ],
                       ),
                     ),
-
-                    // Form Fields
                     _buildFormField(
                       controller: _studentNameController,
                       label: 'Student Name',
                       icon: Icons.person_outline,
                       iconColor: const Color.fromARGB(255, 24, 81, 91),
-                      hintText: 'Enter your full name',
-                      validator:
-                          (value) =>
-                              value!.isEmpty
-                                  ? 'Student name is required'
-                                  : null,
+                      readOnly: true,
                     ),
                     _buildFormField(
                       controller: _regNoController,
                       label: 'Registration Number',
                       icon: Icons.badge_outlined,
                       iconColor: Colors.blue,
-                      hintText: 'e.g., SP22-BCS-023',
-                      validator:
-                          (value) =>
-                              value!.isEmpty
-                                  ? 'Registration number is required'
-                                  : null,
+                      readOnly: true,
                     ),
-                    _buildFormField(
-                      controller: _groupMembersController,
-                      label: 'Group Members',
-                      icon: Icons.group_outlined,
-                      iconColor: Colors.green,
-                      hintText: 'Name - Reg No (one per line)',
-                      maxLines: 3,
-                      validator:
-                          (value) =>
-                              value!.isEmpty
-                                  ? 'Group members are required'
-                                  : null,
-                    ),
+                    _buildGroupMemberDropdown(0),
+                    _buildGroupMemberDropdown(1),
                     _buildFormField(
                       controller: _projectTitleController,
                       label: 'Project Title',
@@ -604,148 +549,27 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                                   ? 'Project title is required'
                                   : null,
                     ),
+                    // NEW: Project Description field
                     _buildFormField(
-                      controller: _proposalController,
-                      label: 'Project Proposal',
+                      controller: _projectDescriptionController,
+                      label: 'Project Description',
                       icon: Icons.description_outlined,
                       iconColor: Colors.purple,
-                      hintText: 'Describe your project proposal in detail...',
-                      maxLines: 8,
+                      hintText:
+                          'Enter a brief project description (max 1 paragraph)',
+                      maxLines: 5,
                       validator: (value) {
-                        if (value == null || value.trim().length < 5) {
-                          return 'Proposal must be at least 5 characters';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Project description is required';
+                        }
+                        if (value.trim().contains('\n\n')) {
+                          return 'Only one paragraph allowed';
                         }
                         return null;
                       },
                     ),
-
-                    // File Upload Section
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 30),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.08),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.teal.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.attach_file_outlined,
-                                    color: Colors.teal,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'Upload Proposal Document',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.teal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            if (_uploadedFileName != null) ...[
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.green.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.check_circle,
-                                      color: Colors.green,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _uploadedFileName!,
-                                        style: const TextStyle(
-                                          color: Colors.green,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.close,
-                                        color: Colors.green,
-                                        size: 18,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _uploadedFileName = null;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: _pickFile,
-                                icon: const Icon(Icons.upload_file, size: 20),
-                                label: Text(
-                                  _uploadedFileName != null
-                                      ? 'Change File'
-                                      : 'Choose File',
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.teal,
-                                  side: const BorderSide(color: Colors.teal),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Supported formats: PDF, DOC, DOCX',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Submit Button
+                    const SizedBox(height: 20),
+                    // Submit button
                     Container(
                       width: double.infinity,
                       height: 56,
@@ -788,7 +612,9 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                                   size: 24,
                                 ),
                         label: Text(
-                          _isSubmitting ? 'Submitting...' : 'Submit Proposal',
+                          _isSubmitting
+                              ? 'Submitting...'
+                              : 'Submit Proposal Request',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -804,43 +630,7 @@ class _SubmitProposalPageState extends State<SubmitProposalPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    // Info Card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blue[600],
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Make sure your proposal is detailed and includes all necessary information. You will receive a response within 3-5 business days.',
-                              style: TextStyle(
-                                color: Colors.blue[700],
-                                fontSize: 13,
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 40),
                   ],
                 ),
               ),

@@ -64,6 +64,8 @@ dependencies:
   flutter_local_notifications: 
   badges:
   timezone: 
+  excel:
+  pdfx: ^2.9.2
   # dio:
 
 dev_dependencies:

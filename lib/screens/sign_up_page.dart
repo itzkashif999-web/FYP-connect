@@ -1,5 +1,721 @@
+// import 'package:flutter/material.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:fyp_connect/SupervisorDashboard/supervisor_dashboard.dart';
+// import 'package:fyp_connect/screens/Admindashboard/admin_dashboard.dart';
+// import '../auth/auth_service.dart';
+// import '../StudentDashboard/student_dashboard.dart';
+// import 'sign_in_page.dart';
+
+// class SignUpPage extends StatefulWidget {
+//   const SignUpPage({super.key});
+
+//   @override
+//   State<SignUpPage> createState() => _SignUpPageState();
+// }
+
+// class _SignUpPageState extends State<SignUpPage> {
+//   final _formKey = GlobalKey<FormState>();
+
+//   final _userNameController = TextEditingController();
+//   final _emailController = TextEditingController();
+//   final _passwordController = TextEditingController();
+//   final _confirmPasswordController = TextEditingController();
+//   final _departmentController = TextEditingController();
+
+//   String? _selectedRole;
+//   String? _selectedRegNo;
+//   String? _selectedFacultyId;
+//   String? _selectedAdminId;
+
+//   bool _isPasswordVisible = false;
+//   bool _isConfirmPasswordVisible = false;
+//   bool _agreeToTerms = false;
+
+//   final _authService = AuthService();
+
+//   @override
+//   void dispose() {
+//     _userNameController.dispose();
+//     _emailController.dispose();
+//     _passwordController.dispose();
+//     _confirmPasswordController.dispose();
+//     _departmentController.dispose();
+//     super.dispose();
+//   }
+
+//   /// Fetch student registration numbers
+//   Future<List<String>> _fetchRegistrationNumbers() async {
+//     final snapshot =
+//         await FirebaseFirestore.instance.collection('addusers').get();
+//     List<String> regNumbers = [];
+//     for (var doc in snapshot.docs) {
+//       final studentsSnap = await doc.reference.collection('add_students').get();
+//       regNumbers.addAll(
+//         studentsSnap.docs.map((sDoc) => sDoc['registrationNo'].toString()),
+//       );
+//     }
+//     return regNumbers;
+//   }
+
+//   /// Fetch supervisor faculty IDs
+//   Future<List<String>> _fetchFacultyId() async {
+//     final snapshot =
+//         await FirebaseFirestore.instance.collection('addusers').get();
+//     List<String> facultyIds = [];
+//     for (var doc in snapshot.docs) {
+//       final supSnap = await doc.reference.collection('add_supervisors').get();
+//       facultyIds.addAll(
+//         supSnap.docs.map((sDoc) => sDoc['facultyId'].toString()),
+//       );
+//     }
+//     return facultyIds;
+//   }
+
+//   /// Fetch admin IDs
+//   Future<List<String>> _fetchAdminIds() async {
+//     final snapshot =
+//         await FirebaseFirestore.instance.collection('addusers').get();
+//     List<String> adminIds = [];
+//     for (var doc in snapshot.docs) {
+//       final adminSnap = await doc.reference.collection('add_admins').get();
+//       adminIds.addAll(adminSnap.docs.map((aDoc) => aDoc['adminId'].toString()));
+//     }
+//     return adminIds;
+//   }
+
+//   /// Fetch name based on selected RegNo / FacultyId / AdminId
+//   Future<void> _fetchName() async {
+//     if (_selectedRole == null) return;
+//     String? name;
+//     final addUsersSnapshot =
+//         await FirebaseFirestore.instance.collection('addusers').get();
+
+//     for (var doc in addUsersSnapshot.docs) {
+//       if (_selectedRole == 'student' && _selectedRegNo != null) {
+//         final studentsSnap =
+//             await doc.reference.collection('add_students').get();
+//         for (var sDoc in studentsSnap.docs) {
+//           if (sDoc['registrationNo'].toString() == _selectedRegNo) {
+//             name = sDoc['name'];
+//             break;
+//           }
+//         }
+//       } else if (_selectedRole == 'supervisor' && _selectedFacultyId != null) {
+//         final supSnap = await doc.reference.collection('add_supervisors').get();
+//         for (var sDoc in supSnap.docs) {
+//           if (sDoc['facultyId'].toString() == _selectedFacultyId) {
+//             name = sDoc['name'];
+//             break;
+//           }
+//         }
+//       } else if (_selectedRole == 'admin' && _selectedAdminId != null) {
+//         final adminSnap = await doc.reference.collection('add_admins').get();
+//         for (var aDoc in adminSnap.docs) {
+//           if (aDoc['adminId'].toString() == _selectedAdminId) {
+//             name = aDoc['name'];
+//             break;
+//           }
+//         }
+//       }
+//       if (name != null) break;
+//     }
+
+//     if (name != null) {
+//       setState(() {
+//         _userNameController.text = name!;
+//       });
+//     }
+//   }
+
+//   Future<void> _handleSignUp() async {
+//     if (_formKey.currentState!.validate() && _agreeToTerms) {
+//       final email = _emailController.text.trim().toLowerCase();
+//       final role = _selectedRole!.toLowerCase();
+//       final dept = _departmentController.text.trim().toUpperCase();
+
+//       try {
+//         bool isValid = false;
+
+//         final addUsersSnapshot =
+//             await FirebaseFirestore.instance.collection('addusers').get();
+
+//         for (var doc in addUsersSnapshot.docs) {
+//           if (role == 'student') {
+//             final studentsSnap =
+//                 await doc.reference.collection('add_students').get();
+//             for (var sDoc in studentsSnap.docs) {
+//               if (sDoc['email'].toString().toLowerCase() == email &&
+//                   sDoc['department'].toString().toUpperCase() == dept &&
+//                   sDoc['registrationNo'].toString().toLowerCase() ==
+//                       _selectedRegNo!.toLowerCase()) {
+//                 isValid = true;
+//                 break;
+//               }
+//             }
+//           } else if (role == 'supervisor') {
+//             final supSnap =
+//                 await doc.reference.collection('add_supervisors').get();
+//             for (var sDoc in supSnap.docs) {
+//               if (sDoc['email'].toString().toLowerCase() == email &&
+//                   sDoc['department'].toString().toUpperCase() == dept &&
+//                   sDoc['facultyId'].toString().toLowerCase() ==
+//                       _selectedFacultyId!.toLowerCase()) {
+//                 isValid = true;
+//                 break;
+//               }
+//             }
+//           } else if (role == 'admin') {
+//             final adminSnap =
+//                 await doc.reference.collection('add_admins').get();
+//             for (var aDoc in adminSnap.docs) {
+//               if (aDoc['email'].toString().toLowerCase() == email &&
+//                   aDoc['adminId'].toString().toLowerCase() ==
+//                       _selectedAdminId!.toLowerCase()) {
+//                 isValid = true;
+//                 break;
+//               }
+//             }
+//           }
+//         }
+
+//         if (!isValid) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             const SnackBar(
+//               content: Text("Your details do not match records."),
+//               backgroundColor: Colors.redAccent,
+//             ),
+//           );
+//           return;
+//         }
+
+//         // Create Firebase Auth account
+//         await _authService.signUp(
+//           email: email,
+//           password: _passwordController.text.trim(),
+//           username: _userNameController.text.trim(),
+//           role: role,
+//         );
+
+//         final currentUser = FirebaseAuth.instance.currentUser!;
+//         await FirebaseFirestore.instance
+//             .collection('users')
+//             .doc(currentUser.uid)
+//             .set({
+//               'name': _userNameController.text.trim(),
+//               'department': role == 'admin' ? null : dept,
+//               'registrationNo': role == 'student' ? _selectedRegNo : null,
+//               'facultyId': role == 'supervisor' ? _selectedFacultyId : null,
+//               'adminId': role == 'admin' ? _selectedAdminId : null,
+//             }, SetOptions(merge: true));
+
+//         // Navigation
+//         if (role == 'student') {
+//           Navigator.pushReplacement(
+//             context,
+//             MaterialPageRoute(builder: (_) => const StudentDashboard()),
+//           );
+//         } else if (role == 'supervisor') {
+//           Navigator.pushReplacement(
+//             context,
+//             MaterialPageRoute(builder: (_) => const SupervisorDashboard()),
+//           );
+//         } else if (role == 'admin') {
+//           Navigator.pushReplacement(
+//             context,
+//             MaterialPageRoute(
+//               builder: (_) => AdminDashboard(currentUserId: currentUser.uid),
+//             ),
+//           );
+//         }
+//       } on FirebaseAuthException catch (e) {
+//         String message = 'Signup failed';
+//         if (e.code == 'email-already-in-use') {
+//           message = 'Email already in use.';
+//         } else if (e.code == 'weak-password') {
+//           message = 'Password is too weak.';
+//         }
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+//         );
+//       }
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       body: Container(
+//         decoration: const BoxDecoration(
+//           image: DecorationImage(
+//             image: AssetImage("assets/appBg.jpeg"),
+//             fit: BoxFit.cover,
+//           ),
+//         ),
+//         child: SafeArea(
+//           child: SingleChildScrollView(
+//             padding: const EdgeInsets.all(24.0),
+//             child: Form(
+//               key: _formKey,
+//               child: Column(
+//                 children: [
+//                   const SizedBox(height: 40),
+//                   const Text(
+//                     'Create Account',
+//                     style: TextStyle(
+//                       fontSize: 28,
+//                       fontWeight: FontWeight.bold,
+//                       color: Color.fromARGB(255, 9, 58, 53),
+//                     ),
+//                   ),
+//                   const SizedBox(height: 8),
+//                   const Text(
+//                     'Sign up to get started',
+//                     style: TextStyle(
+//                       color: Color.fromARGB(255, 190, 187, 187),
+//                       fontSize: 16,
+//                     ),
+//                   ),
+//                   const SizedBox(height: 32),
+
+//                   /// Name field (auto fetched)
+//                   _buildTextField(
+//                     controller: _userNameController,
+//                     hint: 'Name will be auto-filled',
+//                     icon: Icons.person,
+//                     readOnly: true,
+//                     validator:
+//                         (v) => v!.isEmpty ? 'Name could not be fetched' : null,
+//                   ),
+//                   const SizedBox(height: 16),
+
+//                   /// EMAIL with new validation
+//                   _buildTextField(
+//                     controller: _emailController,
+//                     hint: 'Enter your email',
+//                     icon: Icons.email,
+//                     validator: (value) {
+//                       if (value == null || value.isEmpty) {
+//                         return 'Please enter email';
+//                       }
+
+//                       String pattern =
+//                           r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+
+//                       if (!RegExp(pattern).hasMatch(value.trim())) {
+//                         return 'Enter a valid email address';
+//                       }
+
+//                       return null;
+//                     },
+//                   ),
+//                   const SizedBox(height: 16),
+
+//                   _buildRoleDropdown(),
+//                   const SizedBox(height: 16),
+
+//                   if (_selectedRole != 'admin') _buildDepartmentDropdown(),
+//                   if (_selectedRole != 'admin') const SizedBox(height: 16),
+
+//                   if (_selectedRole == 'student') _buildRegDropdown(),
+//                   if (_selectedRole == 'supervisor') _buildFacIdDropdown(),
+//                   if (_selectedRole == 'admin') _buildAdminIdDropdown(),
+//                   const SizedBox(height: 16),
+
+//                   /// PASSWORD with strong validation
+//                   _buildPasswordField(
+//                     controller: _passwordController,
+//                     hint: 'Enter your password',
+//                     visible: _isPasswordVisible,
+//                     toggle:
+//                         () => setState(
+//                           () => _isPasswordVisible = !_isPasswordVisible,
+//                         ),
+//                   ),
+//                   const SizedBox(height: 16),
+
+//                   _buildPasswordField(
+//                     controller: _confirmPasswordController,
+//                     hint: 'Confirm your password',
+//                     visible: _isConfirmPasswordVisible,
+//                     toggle:
+//                         () => setState(
+//                           () =>
+//                               _isConfirmPasswordVisible =
+//                                   !_isConfirmPasswordVisible,
+//                         ),
+//                     confirm: true,
+//                   ),
+//                   const SizedBox(height: 16),
+
+//                   Row(
+//                     children: [
+//                       Checkbox(
+//                         value: _agreeToTerms,
+//                         onChanged: (v) => setState(() => _agreeToTerms = v!),
+//                       ),
+//                       Expanded(
+//                         child: GestureDetector(
+//                           onTap: () {
+//                             showDialog(
+//                               context: context,
+//                               builder: (context) {
+//                                 return AlertDialog(
+//                                   title: const Text("Terms & Conditions"),
+//                                   content: SingleChildScrollView(
+//                                     child: Text("""
+// 1. You must provide authentic details to sign up.
+// 2. Accounts are role-based (Student / Supervisor / Admin).
+// 3. Do not share your login credentials.
+// 4. Data is stored securely and used only for academic purposes.
+// 5. Misuse of the platform may result in account termination.
+// 6. The app is a support tool; developers are not responsible for academic results.
+//                                     """),
+//                                   ),
+//                                   actions: [
+//                                     TextButton(
+//                                       onPressed: () => Navigator.pop(context),
+//                                       child: const Text("Close"),
+//                                     ),
+//                                   ],
+//                                 );
+//                               },
+//                             );
+//                           },
+//                           child: const Text(
+//                             'I agree to the Terms & Conditions',
+//                             style: TextStyle(
+//                               fontSize: 14,
+//                               decoration: TextDecoration.underline,
+//                             ),
+//                           ),
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+
+//                   const SizedBox(height: 24),
+
+//                   ElevatedButton(
+//                     onPressed: _handleSignUp,
+//                     style: ElevatedButton.styleFrom(
+//                       backgroundColor: const Color.fromARGB(255, 24, 81, 91),
+//                       foregroundColor: Colors.white,
+//                       padding: const EdgeInsets.symmetric(
+//                         horizontal: 100,
+//                         vertical: 16,
+//                       ),
+//                       shape: RoundedRectangleBorder(
+//                         borderRadius: BorderRadius.circular(12),
+//                       ),
+//                     ),
+//                     child: const Text(
+//                       'Sign Up',
+//                       style: TextStyle(fontSize: 18),
+//                     ),
+//                   ),
+//                   const SizedBox(height: 16),
+
+//                   Row(
+//                     mainAxisAlignment: MainAxisAlignment.center,
+//                     children: [
+//                       const Text("Already have an account? "),
+//                       GestureDetector(
+//                         onTap: () {
+//                           Navigator.pushReplacement(
+//                             context,
+//                             MaterialPageRoute(
+//                               builder: (_) => const SignInPage(),
+//                             ),
+//                           );
+//                         },
+//                         child: const Text(
+//                           "Sign In",
+//                           style: TextStyle(
+//                             color: Color(0xFFFF8A50),
+//                             fontWeight: FontWeight.bold,
+//                           ),
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   /// ---------- Widgets ----------
+//   Widget _buildTextField({
+//     required TextEditingController controller,
+//     required String hint,
+//     required IconData icon,
+//     String? Function(String?)? validator,
+//     bool readOnly = false,
+//   }) => Container(
+//     decoration: _boxDecoration(),
+//     child: TextFormField(
+//       controller: controller,
+//       readOnly: readOnly,
+//       decoration: InputDecoration(
+//         hintText: hint,
+//         prefixIcon: Icon(icon, color: const Color.fromARGB(255, 133, 213, 231)),
+//         border: InputBorder.none,
+//         contentPadding: const EdgeInsets.symmetric(
+//           horizontal: 16,
+//           vertical: 16,
+//         ),
+//       ),
+//       validator: validator,
+//     ),
+//   );
+
+//   Widget _buildPasswordField({
+//     required TextEditingController controller,
+//     required String hint,
+//     required bool visible,
+//     required VoidCallback toggle,
+//     bool confirm = false,
+//   }) => Container(
+//     decoration: _boxDecoration(),
+//     child: TextFormField(
+//       controller: controller,
+//       obscureText: !visible,
+//       decoration: InputDecoration(
+//         hintText: hint,
+//         prefixIcon: const Icon(
+//           Icons.lock,
+//           color: Color.fromARGB(255, 133, 213, 231),
+//         ),
+//         suffixIcon: IconButton(
+//           icon: Icon(
+//             visible ? Icons.visibility : Icons.visibility_off,
+//             color: Colors.grey,
+//           ),
+//           onPressed: toggle,
+//         ),
+//         border: InputBorder.none,
+//         contentPadding: const EdgeInsets.symmetric(
+//           horizontal: 16,
+//           vertical: 16,
+//         ),
+//       ),
+
+//       /// 🔥 NEW STRONG PASSWORD VALIDATION HERE
+//       validator: (value) {
+//         if (value == null || value.isEmpty) {
+//           return confirm ? 'Please confirm password' : 'Please enter password';
+//         }
+
+//         if (value.length < 6) {
+//           return 'Password must be at least 6 characters';
+//         }
+//         if (!RegExp(r'[A-Z]').hasMatch(value)) {
+//           return 'Must include an uppercase letter';
+//         }
+//         if (!RegExp(r'[a-z]').hasMatch(value)) {
+//           return 'Must include a lowercase letter';
+//         }
+//         if (!RegExp(r'\d').hasMatch(value)) {
+//           return 'Must include a number';
+//         }
+//         if (!RegExp(r'[!@#\$&*~%^()\-_=+{};:,.<>]').hasMatch(value)) {
+//           return 'Must include a special character';
+//         }
+
+//         if (confirm && value != _passwordController.text) {
+//           return 'Passwords do not match';
+//         }
+
+//         return null;
+//       },
+//     ),
+//   );
+
+//   Widget _buildRoleDropdown() => Container(
+//     decoration: _boxDecoration(),
+//     child: DropdownButtonFormField<String>(
+//       value: _selectedRole,
+//       items:
+//           ['student', 'supervisor', 'admin']
+//               .map(
+//                 (role) => DropdownMenuItem(
+//                   value: role,
+//                   child: Text(role.toUpperCase()),
+//                 ),
+//               )
+//               .toList(),
+//       onChanged: (v) {
+//         setState(() {
+//           _selectedRole = v;
+//           _selectedRegNo = null;
+//           _selectedFacultyId = null;
+//           _selectedAdminId = null;
+//           _userNameController.clear();
+//         });
+//       },
+//       decoration: const InputDecoration(
+//         hintText: 'Select Role',
+//         prefixIcon: Icon(Icons.work, color: Color.fromARGB(255, 133, 213, 231)),
+//         border: InputBorder.none,
+//         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+//       ),
+//       validator: (v) => v == null ? 'Please select role' : null,
+//     ),
+//   );
+
+//   Widget _buildDepartmentDropdown() => Container(
+//     decoration: _boxDecoration(),
+//     child: DropdownButtonFormField<String>(
+//       value:
+//           _departmentController.text.isEmpty
+//               ? null
+//               : _departmentController.text,
+//       items:
+//           ['CS', 'SE']
+//               .map((dept) => DropdownMenuItem(value: dept, child: Text(dept)))
+//               .toList(),
+//       onChanged: (v) => setState(() => _departmentController.text = v!),
+//       decoration: const InputDecoration(
+//         hintText: 'Select Department',
+//         prefixIcon: Icon(
+//           Icons.apartment,
+//           color: Color.fromARGB(255, 133, 213, 231),
+//         ),
+//         border: InputBorder.none,
+//         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+//       ),
+//       validator: (v) => v == null ? 'Please select department' : null,
+//     ),
+//   );
+
+//   Widget _buildRegDropdown() => FutureBuilder<List<String>>(
+//     future: _fetchRegistrationNumbers(),
+//     builder: (context, snapshot) {
+//       if (snapshot.connectionState == ConnectionState.waiting) {
+//         return const Center(child: CircularProgressIndicator());
+//       }
+//       if (!snapshot.hasData || snapshot.data!.isEmpty) {
+//         return const Text("No registration numbers found");
+//       }
+//       return Container(
+//         decoration: _boxDecoration(),
+//         child: DropdownButtonFormField<String>(
+//           value: _selectedRegNo,
+//           items:
+//               snapshot.data!
+//                   .map(
+//                     (regNo) =>
+//                         DropdownMenuItem(value: regNo, child: Text(regNo)),
+//                   )
+//                   .toList(),
+//           onChanged: (v) async {
+//             setState(() => _selectedRegNo = v);
+//             await _fetchName();
+//           },
+//           decoration: const InputDecoration(
+//             hintText: 'Select Registration No',
+//             prefixIcon: Icon(
+//               Icons.confirmation_number,
+//               color: Color.fromARGB(255, 133, 213, 231),
+//             ),
+//             border: InputBorder.none,
+//             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+//           ),
+//           validator:
+//               (v) => v == null ? 'Please select a registration number' : null,
+//         ),
+//       );
+//     },
+//   );
+
+//   Widget _buildFacIdDropdown() => FutureBuilder<List<String>>(
+//     future: _fetchFacultyId(),
+//     builder: (context, snapshot) {
+//       if (snapshot.connectionState == ConnectionState.waiting) {
+//         return const Center(child: CircularProgressIndicator());
+//       }
+//       if (!snapshot.hasData || snapshot.data!.isEmpty) {
+//         return const Text("No Faculty Id found");
+//       }
+//       return Container(
+//         decoration: _boxDecoration(),
+//         child: DropdownButtonFormField<String>(
+//           value: _selectedFacultyId,
+//           items:
+//               snapshot.data!
+//                   .map(
+//                     (facId) =>
+//                         DropdownMenuItem(value: facId, child: Text(facId)),
+//                   )
+//                   .toList(),
+//           onChanged: (v) async {
+//             setState(() => _selectedFacultyId = v);
+//             await _fetchName();
+//           },
+//           decoration: const InputDecoration(
+//             hintText: 'Select Faculty Id',
+//             prefixIcon: Icon(
+//               Icons.confirmation_number,
+//               color: Color.fromARGB(255, 133, 213, 231),
+//             ),
+//             border: InputBorder.none,
+//             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+//           ),
+//           validator: (v) => v == null ? 'Please select a Faculty Id' : null,
+//         ),
+//       );
+//     },
+//   );
+
+//   Widget _buildAdminIdDropdown() => FutureBuilder<List<String>>(
+//     future: _fetchAdminIds(),
+//     builder: (context, snapshot) {
+//       if (snapshot.connectionState == ConnectionState.waiting) {
+//         return const Center(child: CircularProgressIndicator());
+//       }
+//       if (!snapshot.hasData || snapshot.data!.isEmpty) {
+//         return const Text("No Admin Id found");
+//       }
+//       return Container(
+//         decoration: _boxDecoration(),
+//         child: DropdownButtonFormField<String>(
+//           value: _selectedAdminId,
+//           items:
+//               snapshot.data!
+//                   .map((aid) => DropdownMenuItem(value: aid, child: Text(aid)))
+//                   .toList(),
+//           onChanged: (v) async {
+//             setState(() => _selectedAdminId = v);
+//             await _fetchName();
+//           },
+//           decoration: const InputDecoration(
+//             hintText: 'Select Admin Id',
+//             prefixIcon: Icon(
+//               Icons.admin_panel_settings,
+//               color: Color.fromARGB(255, 133, 213, 231),
+//             ),
+//             border: InputBorder.none,
+//             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+//           ),
+//           validator: (v) => v == null ? 'Please select an Admin Id' : null,
+//         ),
+//       );
+//     },
+//   );
+
+//   BoxDecoration _boxDecoration() => BoxDecoration(
+//     color: Colors.grey[50],
+//     borderRadius: BorderRadius.circular(12),
+//     border: Border.all(color: Colors.grey[200]!),
+//   );
+// }
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp_connect/SupervisorDashboard/supervisor_dashboard.dart';
 import 'package:fyp_connect/screens/Admindashboard/admin_dashboard.dart';
 import '../auth/auth_service.dart';
@@ -15,12 +731,18 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   final _formKey = GlobalKey<FormState>();
+
   final _userNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _departmentController = TextEditingController();
 
   String? _selectedRole;
+  String? _selectedRegNo;
+  String? _selectedFacultyId;
+  String? _selectedAdminId;
+
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _agreeToTerms = false;
@@ -33,22 +755,176 @@ class _SignUpPageState extends State<SignUpPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _departmentController.dispose();
     super.dispose();
+  }
+
+  /// Fetch student registration numbers
+  Future<List<String>> _fetchRegistrationNumbers() async {
+    final snapshot =
+        await FirebaseFirestore.instance.collection('addusers').get();
+    List<String> regNumbers = [];
+    for (var doc in snapshot.docs) {
+      final studentsSnap = await doc.reference.collection('add_students').get();
+      regNumbers.addAll(
+        studentsSnap.docs.map((sDoc) => sDoc['registrationNo'].toString()),
+      );
+    }
+    return regNumbers;
+  }
+
+  /// Fetch supervisor faculty IDs
+  Future<List<String>> _fetchFacultyId() async {
+    final snapshot =
+        await FirebaseFirestore.instance.collection('addusers').get();
+    List<String> facultyIds = [];
+    for (var doc in snapshot.docs) {
+      final supSnap = await doc.reference.collection('add_supervisors').get();
+      facultyIds.addAll(
+        supSnap.docs.map((sDoc) => sDoc['facultyId'].toString()),
+      );
+    }
+    return facultyIds;
+  }
+
+  /// Fetch admin IDs
+  Future<List<String>> _fetchAdminIds() async {
+    final snapshot =
+        await FirebaseFirestore.instance.collection('addusers').get();
+    List<String> adminIds = [];
+    for (var doc in snapshot.docs) {
+      final adminSnap = await doc.reference.collection('add_admins').get();
+      adminIds.addAll(adminSnap.docs.map((aDoc) => aDoc['adminId'].toString()));
+    }
+    return adminIds;
+  }
+
+  /// Fetch name based on selected RegNo / FacultyId / AdminId
+  Future<void> _fetchName() async {
+    if (_selectedRole == null) return;
+    String? name;
+    final addUsersSnapshot =
+        await FirebaseFirestore.instance.collection('addusers').get();
+
+    for (var doc in addUsersSnapshot.docs) {
+      if (_selectedRole == 'student' && _selectedRegNo != null) {
+        final studentsSnap =
+            await doc.reference.collection('add_students').get();
+        for (var sDoc in studentsSnap.docs) {
+          if (sDoc['registrationNo'].toString() == _selectedRegNo) {
+            name = sDoc['name'];
+            break;
+          }
+        }
+      } else if (_selectedRole == 'supervisor' && _selectedFacultyId != null) {
+        final supSnap = await doc.reference.collection('add_supervisors').get();
+        for (var sDoc in supSnap.docs) {
+          if (sDoc['facultyId'].toString() == _selectedFacultyId) {
+            name = sDoc['name'];
+            break;
+          }
+        }
+      } else if (_selectedRole == 'admin' && _selectedAdminId != null) {
+        final adminSnap = await doc.reference.collection('add_admins').get();
+        for (var aDoc in adminSnap.docs) {
+          if (aDoc['adminId'].toString() == _selectedAdminId) {
+            name = aDoc['name'];
+            break;
+          }
+        }
+      }
+      if (name != null) break;
+    }
+
+    if (name != null) {
+      setState(() {
+        _userNameController.text = name!;
+      });
+    }
   }
 
   Future<void> _handleSignUp() async {
     if (_formKey.currentState!.validate() && _agreeToTerms) {
+      final email = _emailController.text.trim().toLowerCase();
+      final role = _selectedRole!.toLowerCase();
+      final dept = _departmentController.text.trim().toUpperCase();
+
       try {
+        bool isValid = false;
+
+        final addUsersSnapshot =
+            await FirebaseFirestore.instance.collection('addusers').get();
+
+        for (var doc in addUsersSnapshot.docs) {
+          if (role == 'student') {
+            final studentsSnap =
+                await doc.reference.collection('add_students').get();
+            for (var sDoc in studentsSnap.docs) {
+              if (sDoc['email'].toString().toLowerCase() == email &&
+                  sDoc['department'].toString().toUpperCase() == dept &&
+                  sDoc['registrationNo'].toString().toLowerCase() ==
+                      _selectedRegNo!.toLowerCase()) {
+                isValid = true;
+                break;
+              }
+            }
+          } else if (role == 'supervisor') {
+            final supSnap =
+                await doc.reference.collection('add_supervisors').get();
+            for (var sDoc in supSnap.docs) {
+              if (sDoc['email'].toString().toLowerCase() == email &&
+                  sDoc['department'].toString().toUpperCase() == dept &&
+                  sDoc['facultyId'].toString().toLowerCase() ==
+                      _selectedFacultyId!.toLowerCase()) {
+                isValid = true;
+                break;
+              }
+            }
+          } else if (role == 'admin') {
+            final adminSnap =
+                await doc.reference.collection('add_admins').get();
+            for (var aDoc in adminSnap.docs) {
+              if (aDoc['email'].toString().toLowerCase() == email &&
+                  aDoc['adminId'].toString().toLowerCase() ==
+                      _selectedAdminId!.toLowerCase()) {
+                isValid = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!isValid) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Your details do not match records."),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          return;
+        }
+
+        // Create Firebase Auth account
         await _authService.signUp(
-          email: _emailController.text.trim(),
+          email: email,
           password: _passwordController.text.trim(),
           username: _userNameController.text.trim(),
-          role: _selectedRole!, // Pass role to AuthService
+          role: role,
         );
 
-        // Use lowercase for comparison
-        String role = _selectedRole?.toLowerCase() ?? '';
-        
+        final currentUser = FirebaseAuth.instance.currentUser!;
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .set({
+              'name': _userNameController.text.trim(),
+              'department': role == 'admin' ? null : dept,
+              'registrationNo': role == 'student' ? _selectedRegNo : null,
+              'facultyId': role == 'supervisor' ? _selectedFacultyId : null,
+              'adminId': role == 'admin' ? _selectedAdminId : null,
+            }, SetOptions(merge: true));
+
+        // Navigation
         if (role == 'student') {
           Navigator.pushReplacement(
             context,
@@ -63,18 +939,7 @@ class _SignUpPageState extends State<SignUpPage> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder:
-                  (_) => AdminDashboard(
-                    currentUserId: FirebaseAuth.instance.currentUser!.uid,
-                  ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                "Dashboard for $_selectedRole not implemented yet.",
-              ),
+              builder: (_) => AdminDashboard(currentUserId: currentUser.uid),
             ),
           );
         }
@@ -86,546 +951,490 @@ class _SignUpPageState extends State<SignUpPage> {
           message = 'Password is too weak.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
+          SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+        );
+      }
+    } else {
+      // If terms not agreed, show message
+      if (!_agreeToTerms) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("You must agree to Terms & Conditions."),
             backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
           ),
         );
       }
-    } else if (!_agreeToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please agree to the Terms & Conditions'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      body: Stack(
-        children: [
-          // Background with gradient
-          Container(
-            height: MediaQuery.of(context).size.height,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFF5F5F5), Color(0xFFE8E8E8)],
-              ),
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("assets/appBg.jpeg"),
+            fit: BoxFit.cover,
           ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  const SizedBox(height: 40),
+                  const Text(
+                    'Create Account',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromARGB(255, 9, 58, 53),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sign up to get started',
+                    style: TextStyle(
+                      color: Color.fromARGB(255, 190, 187, 187),
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
 
-          // Background Image
-          Positioned.fill(
-            child: Image.asset('assets/appBg.jpeg', fit: BoxFit.cover),
-          ),
+                  /// Name field (auto fetched)
+                  _buildTextField(
+                    controller: _userNameController,
+                    hint: 'Name will be auto-filled',
+                    icon: Icons.person,
+                    readOnly: true,
+                    validator:
+                        (v) => v!.isEmpty ? 'Name could not be fetched' : null,
+                  ),
+                  const SizedBox(height: 16),
 
-          // Main Content
-          SafeArea(
-            child: SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height,
-                ),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.12,
-                      ),
+                  /// EMAIL with validation
+                  _buildTextField(
+                    controller: _emailController,
+                    hint: 'Enter your email',
+                    icon: Icons.email,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter email';
+                      }
 
-                      // Title
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Create An Account',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3748),
-                            ),
-                          ),
+                      String pattern =
+                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+
+                      if (!RegExp(pattern).hasMatch(value.trim())) {
+                        return 'Enter a valid email address';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildRoleDropdown(),
+                  const SizedBox(height: 16),
+
+                  if (_selectedRole != 'admin') _buildDepartmentDropdown(),
+                  if (_selectedRole != 'admin') const SizedBox(height: 16),
+
+                  if (_selectedRole == 'student') _buildRegDropdown(),
+                  if (_selectedRole == 'supervisor') _buildFacIdDropdown(),
+                  if (_selectedRole == 'admin') _buildAdminIdDropdown(),
+                  const SizedBox(height: 16),
+
+                  /// PASSWORD with single combined validation message
+                  _buildPasswordField(
+                    controller: _passwordController,
+                    hint: 'Enter your password',
+                    visible: _isPasswordVisible,
+                    toggle:
+                        () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
                         ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildPasswordField(
+                    controller: _confirmPasswordController,
+                    hint: 'Confirm your password',
+                    visible: _isConfirmPasswordVisible,
+                    toggle:
+                        () => setState(
+                          () =>
+                              _isConfirmPasswordVisible =
+                                  !_isConfirmPasswordVisible,
+                        ),
+                    confirm: true,
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _agreeToTerms,
+                        onChanged: (v) => setState(() => _agreeToTerms = v!),
                       ),
-
-                      const SizedBox(height: 30),
-
-                      // Bottom Sheet with Form
                       Expanded(
-                        child: Container(
-                          width: double.infinity,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(30),
-                              topRight: Radius.circular(30),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 10,
-                                offset: Offset(0, -5),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // User Name Field
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey[200]!,
-                                      ),
-                                    ),
-                                    child: TextFormField(
-                                      controller: _userNameController,
-                                      decoration: const InputDecoration(
-                                        hintText: 'Enter Your Name',
-                                        hintStyle: TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                        prefixIcon: Icon(
-                                          Icons.person_outline,
-                                          color: Color.fromARGB(
-                                            255,
-                                            133,
-                                            213,
-                                            231,
-                                          ),
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
-                                        ),
-                                      ),
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return 'Please enter your name';
-                                        }
-                                        return null;
-                                      },
-                                    ),
+                        child: GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: const Text("Terms & Conditions"),
+                                  content: SingleChildScrollView(
+                                    child: Text("""
+1. You must provide authentic details to sign up.
+2. Accounts are role-based (Student / Supervisor / Admin).
+3. Do not share your login credentials.
+4. Data is stored securely and used only for academic purposes.
+5. Misuse of the platform may result in account termination.
+6. The app is a support tool; developers are not responsible for academic results.
+                                    """),
                                   ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Email Field
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey[200]!,
-                                      ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text("Close"),
                                     ),
-                                    child: TextFormField(
-                                      controller: _emailController,
-                                      keyboardType: TextInputType.emailAddress,
-                                      decoration: const InputDecoration(
-                                        hintText: 'abc@gmail.com',
-                                        hintStyle: TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                        prefixIcon: Icon(
-                                          Icons.email_outlined,
-                                          color: Color.fromARGB(
-                                            255,
-                                            133,
-                                            213,
-                                            231,
-                                          ),
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
-                                        ),
-                                      ),
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return 'Please enter your email';
-                                        }
-                                        if (!value.contains('@')) {
-                                          return 'Please enter a valid email';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Role Selection Dropdown
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey[200]!,
-                                      ),
-                                    ),
-                                    child: DropdownButtonFormField<String>(
-                                      value: _selectedRole,
-                                      items:
-                                          ['Student', 'Supervisor', 'Admin']
-                                              .map(
-                                                (role) => DropdownMenuItem(
-                                                  // Store role in lowercase for consistency
-                                                  value: role.toLowerCase(),
-                                                  child: Text(role),
-                                                ),
-                                              )
-                                              .toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _selectedRole = value;
-                                        });
-                                      },
-                                      decoration: const InputDecoration(
-                                        hintText: 'Select Role',
-                                        hintStyle: TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                        prefixIcon: Icon(
-                                          Icons.person,
-                                          color: Color.fromARGB(
-                                            255,
-                                            133,
-                                            213,
-                                            231,
-                                          ),
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
-                                        ),
-                                      ),
-                                      validator:
-                                          (value) =>
-                                              value == null
-                                                  ? 'Please select a role'
-                                                  : null,
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Password Field
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey[200]!,
-                                      ),
-                                    ),
-                                    child: TextFormField(
-                                      controller: _passwordController,
-                                      obscureText: !_isPasswordVisible,
-                                      decoration: InputDecoration(
-                                        hintText: 'Enter Password',
-                                        hintStyle: const TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                        prefixIcon: const Icon(
-                                          Icons.lock_outline,
-                                          color: Color.fromARGB(
-                                            255,
-                                            133,
-                                            213,
-                                            231,
-                                          ),
-                                        ),
-                                        suffixIcon: IconButton(
-                                          icon: Icon(
-                                            _isPasswordVisible
-                                                ? Icons.visibility
-                                                : Icons.visibility_off,
-                                            color: Colors.grey,
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _isPasswordVisible =
-                                                  !_isPasswordVisible;
-                                            });
-                                          },
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 16,
-                                            ),
-                                      ),
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return 'Please enter your password';
-                                        }
-                                        if (value.length < 6) {
-                                          return 'Password must be at least 6 characters';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Confirm Password Field
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey[200]!,
-                                      ),
-                                    ),
-                                    child: TextFormField(
-                                      controller: _confirmPasswordController,
-                                      obscureText: !_isConfirmPasswordVisible,
-                                      decoration: InputDecoration(
-                                        hintText: 'Re-Type Password',
-                                        hintStyle: const TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                        prefixIcon: const Icon(
-                                          Icons.lock_outline,
-                                          color: Color.fromARGB(
-                                            255,
-                                            133,
-                                            213,
-                                            231,
-                                          ),
-                                        ),
-                                        suffixIcon: IconButton(
-                                          icon: Icon(
-                                            _isConfirmPasswordVisible
-                                                ? Icons.visibility
-                                                : Icons.visibility_off,
-                                            color: Colors.grey,
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _isConfirmPasswordVisible =
-                                                  !_isConfirmPasswordVisible;
-                                            });
-                                          },
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 16,
-                                            ),
-                                      ),
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return 'Please confirm your password';
-                                        }
-                                        if (value != _passwordController.text) {
-                                          return 'Passwords do not match';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Terms and Conditions Checkbox
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 20,
-                                        height: 20,
-                                        decoration: BoxDecoration(
-                                          color:
-                                              _agreeToTerms
-                                                  ? Color.fromARGB(
-                                                    255,
-                                                    133,
-                                                    213,
-                                                    231,
-                                                  )
-                                                  : Colors.transparent,
-                                          border: Border.all(
-                                            color: Color.fromARGB(
-                                              255,
-                                              133,
-                                              213,
-                                              231,
-                                            ),
-                                            width: 2,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        child: InkWell(
-                                          onTap: () {
-                                            setState(() {
-                                              _agreeToTerms = !_agreeToTerms;
-                                            });
-                                          },
-                                          child:
-                                              _agreeToTerms
-                                                  ? const Icon(
-                                                    Icons.check,
-                                                    size: 14,
-                                                    color: Colors.white,
-                                                  )
-                                                  : null,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: RichText(
-                                          text: const TextSpan(
-                                            text: 'I agree to the ',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 14,
-                                            ),
-                                            children: [
-                                              TextSpan(
-                                                text: 'Terms & Conditions',
-                                                style: TextStyle(
-                                                  color: Color(0xFFFF8A50),
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              TextSpan(text: ' and '),
-                                              TextSpan(
-                                                text: 'Privacy Policy',
-                                                style: TextStyle(
-                                                  color: Color(0xFFFF8A50),
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 24),
-
-                                  // Sign Up Button
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 50,
-                                    child: ElevatedButton(
-                                      onPressed: _handleSignUp,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Color.fromARGB(
-                                          255,
-                                          24,
-                                          81,
-                                          91,
-                                        ),
-
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            25,
-                                          ),
-                                        ),
-                                        elevation: 0,
-                                      ),
-                                      child: const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            'Sign Up',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          SizedBox(width: 8),
-                                          Icon(
-                                            Icons.arrow_forward,
-                                            color: Colors.white,
-                                            size: 18,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 24),
-
-                                  // Sign In Link
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        'Already have an account? ',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (_) => const SignInPage(),
-                                            ),
-                                          );
-                                        },
-                                        child: const Text(
-                                          'Sign In',
-                                          style: TextStyle(
-                                            color: Color(0xFFFF8A50),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 20),
-                                ],
-                              ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          child: const Text(
+                            'I agree to the Terms & Conditions',
+                            style: TextStyle(
+                              fontSize: 14,
+                              decoration: TextDecoration.underline,
                             ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
+
+                  const SizedBox(height: 24),
+
+                  ElevatedButton(
+                    onPressed: _handleSignUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 24, 81, 91),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 100,
+                        vertical: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Sign Up',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Already have an account? "),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SignInPage(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          "Sign In",
+                          style: TextStyle(
+                            color: Color(0xFFFF8A50),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
+
+  /// ---------- Widgets ----------
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    String? Function(String?)? validator,
+    bool readOnly = false,
+  }) => Container(
+    decoration: _boxDecoration(),
+    child: TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon, color: const Color.fromARGB(255, 133, 213, 231)),
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      ),
+      validator: validator,
+    ),
+  );
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String hint,
+    required bool visible,
+    required VoidCallback toggle,
+    bool confirm = false,
+  }) => Container(
+    decoration: _boxDecoration(),
+    child: TextFormField(
+      controller: controller,
+
+      obscureText: !visible,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: const Icon(
+          Icons.lock,
+          color: Color.fromARGB(255, 133, 213, 231),
+        ),
+        errorMaxLines: 3,
+        suffixIcon: IconButton(
+          icon: Icon(
+            visible ? Icons.visibility : Icons.visibility_off,
+            color: Colors.grey,
+          ),
+          onPressed: toggle,
+        ),
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      ),
+
+      /// Single combined password validator (Option A)
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return confirm ? 'Please confirm password' : 'Please enter password';
+        }
+
+        // Required checks
+        final hasUpper = RegExp(r'[A-Z]').hasMatch(value);
+        final hasLower = RegExp(r'[a-z]').hasMatch(value);
+        final hasDigit = RegExp(r'\d').hasMatch(value);
+        final hasSpecial = RegExp(
+          r'[!@#\$&*~%^()\-_=+{};:,.<>]',
+        ).hasMatch(value);
+        final minLen = value.length >= 6;
+
+        if (!(minLen && hasUpper && hasLower && hasDigit && hasSpecial)) {
+          return 'Password must be 6+ characters and include uppercase, lowercase, number & special character';
+        }
+
+        // Confirm password specific check
+        if (confirm && value != _passwordController.text) {
+          return 'Passwords do not match';
+        }
+
+        return null;
+      },
+    ),
+  );
+
+  Widget _buildRoleDropdown() => Container(
+    decoration: _boxDecoration(),
+    child: DropdownButtonFormField<String>(
+      value: _selectedRole,
+      items:
+          ['student', 'supervisor', 'admin']
+              .map(
+                (role) => DropdownMenuItem(
+                  value: role,
+                  child: Text(role.toUpperCase()),
+                ),
+              )
+              .toList(),
+      onChanged: (v) {
+        setState(() {
+          _selectedRole = v;
+          _selectedRegNo = null;
+          _selectedFacultyId = null;
+          _selectedAdminId = null;
+          _userNameController.clear();
+        });
+      },
+      decoration: const InputDecoration(
+        hintText: 'Select Role',
+        prefixIcon: Icon(Icons.work, color: Color.fromARGB(255, 133, 213, 231)),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      validator: (v) => v == null ? 'Please select role' : null,
+    ),
+  );
+
+  Widget _buildDepartmentDropdown() => Container(
+    decoration: _boxDecoration(),
+    child: DropdownButtonFormField<String>(
+      value:
+          _departmentController.text.isEmpty
+              ? null
+              : _departmentController.text,
+      items:
+          ['CS', 'SE']
+              .map((dept) => DropdownMenuItem(value: dept, child: Text(dept)))
+              .toList(),
+      onChanged: (v) => setState(() => _departmentController.text = v!),
+      decoration: const InputDecoration(
+        hintText: 'Select Department',
+        prefixIcon: Icon(
+          Icons.apartment,
+          color: Color.fromARGB(255, 133, 213, 231),
+        ),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      validator: (v) => v == null ? 'Please select department' : null,
+    ),
+  );
+
+  Widget _buildRegDropdown() => FutureBuilder<List<String>>(
+    future: _fetchRegistrationNumbers(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        return const Text("No registration numbers found");
+      }
+      return Container(
+        decoration: _boxDecoration(),
+        child: DropdownButtonFormField<String>(
+          value: _selectedRegNo,
+          items:
+              snapshot.data!
+                  .map(
+                    (regNo) =>
+                        DropdownMenuItem(value: regNo, child: Text(regNo)),
+                  )
+                  .toList(),
+          onChanged: (v) async {
+            setState(() => _selectedRegNo = v);
+            await _fetchName();
+          },
+          decoration: const InputDecoration(
+            hintText: 'Select Registration No',
+            prefixIcon: Icon(
+              Icons.confirmation_number,
+              color: Color.fromARGB(255, 133, 213, 231),
+            ),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+          validator:
+              (v) => v == null ? 'Please select a registration number' : null,
+        ),
+      );
+    },
+  );
+
+  Widget _buildFacIdDropdown() => FutureBuilder<List<String>>(
+    future: _fetchFacultyId(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        return const Text("No Faculty Id found");
+      }
+      return Container(
+        decoration: _boxDecoration(),
+        child: DropdownButtonFormField<String>(
+          value: _selectedFacultyId,
+          items:
+              snapshot.data!
+                  .map(
+                    (facId) =>
+                        DropdownMenuItem(value: facId, child: Text(facId)),
+                  )
+                  .toList(),
+          onChanged: (v) async {
+            setState(() => _selectedFacultyId = v);
+            await _fetchName();
+          },
+          decoration: const InputDecoration(
+            hintText: 'Select Faculty Id',
+            prefixIcon: Icon(
+              Icons.confirmation_number,
+              color: Color.fromARGB(255, 133, 213, 231),
+            ),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+          validator: (v) => v == null ? 'Please select a Faculty Id' : null,
+        ),
+      );
+    },
+  );
+
+  Widget _buildAdminIdDropdown() => FutureBuilder<List<String>>(
+    future: _fetchAdminIds(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        return const Text("No Admin Id found");
+      }
+      return Container(
+        decoration: _boxDecoration(),
+        child: DropdownButtonFormField<String>(
+          value: _selectedAdminId,
+          items:
+              snapshot.data!
+                  .map((aid) => DropdownMenuItem(value: aid, child: Text(aid)))
+                  .toList(),
+          onChanged: (v) async {
+            setState(() => _selectedAdminId = v);
+            await _fetchName();
+          },
+          decoration: const InputDecoration(
+            hintText: 'Select Admin Id',
+            prefixIcon: Icon(
+              Icons.admin_panel_settings,
+              color: Color.fromARGB(255, 133, 213, 231),
+            ),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+          validator: (v) => v == null ? 'Please select an Admin Id' : null,
+        ),
+      );
+    },
+  );
+
+  BoxDecoration _boxDecoration() => BoxDecoration(
+    color: Colors.grey[50],
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: Colors.grey[200]!),
+  );
 }

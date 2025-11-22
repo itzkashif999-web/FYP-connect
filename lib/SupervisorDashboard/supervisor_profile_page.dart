@@ -1,6 +1,8 @@
+
+
 import 'package:flutter/material.dart';
 import 'package:fyp_connect/auth/auth_service.dart';
-// import '../auth/auth_service.dart'; // replace with actual path
+import 'package:cloud_firestore/cloud_firestore.dart'; // added for Firestore
 
 class SupervisorProfilePage extends StatefulWidget {
   const SupervisorProfilePage({super.key});
@@ -20,15 +22,15 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
       TextEditingController();
   final TextEditingController _idController = TextEditingController();
   final AuthService _authService = AuthService();
-  
+
   // Project count (display only)
   int _projectCount = 0;
-  
+
   // Selected values for dropdowns
   String _selectedSpecialization = '';
   List<String> _selectedPreferenceAreas = [];
   List<String> _selectedProjectHistoryCategories = [];
-  
+
   // Options for dropdowns
   final List<String> _specializationOptions = [
     'Software Engineering',
@@ -46,9 +48,9 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
     'Robotics',
     'IoT',
     'Blockchain',
-    'Game Development'
+    'Game Development',
   ];
-  
+
   final List<String> _preferenceAreaOptions = [
     'Artificial Intelligence',
     'Machine Learning',
@@ -62,9 +64,9 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
     'Game Development',
     'Robotics',
     'Natural Language Processing',
-    'Computer Vision'
+    'Computer Vision',
   ];
-  
+
   final List<String> _projectHistoryOptions = [
     'AI',
     'IoT',
@@ -77,7 +79,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
     'Game Development',
     'Computer Vision',
     'NLP',
-    'Robotics'
+    'Robotics',
   ];
 
   bool _isEditing = true; // Start in edit mode
@@ -98,16 +100,19 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
       // Convert lists to strings for storage
       final preferenceAreasString = _selectedPreferenceAreas.join(', ');
       final projectHistoryString = _selectedProjectHistoryCategories.join(', ');
-      
+
       await _authService.saveSupervisorProfile(
         name: _nameController.text.trim(),
         department: _departmentController.text.trim(),
         projectsHistory: _projectsHistoryController.text.trim(),
-        specialization: _selectedSpecialization.isNotEmpty ? _selectedSpecialization : _specializationController.text.trim(),
+        specialization:
+            _selectedSpecialization.isNotEmpty
+                ? _selectedSpecialization
+                : _specializationController.text.trim(),
         id: _idController.text.trim(),
-        preferenceAreas: preferenceAreasString, // Add new preference areas field
-        projectHistoryCategories: projectHistoryString, // Add new project history categories field
-        projectCount: _projectCount.toString(), // Add project count
+        preferenceAreas: preferenceAreasString,
+        projectHistoryCategories: projectHistoryString,
+        projectCount: _projectCount.toString(),
       );
 
       setState(() {
@@ -138,42 +143,66 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadUserBasicInfo(); // fetch name, department, facultyId
+    _loadProfile(); // load the rest of the profile
+  }
+
+  /// Fetch supervisor basic info from users collection
+  Future<void> _loadUserBasicInfo() async {
+    final uid =
+        _authService
+            .currentUser
+            ?.uid; // Assuming your AuthService has currentUserUid()
+    if (uid != null) {
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists) {
+        final data = doc.data();
+        setState(() {
+          _nameController.text = data?['name'] ?? '';
+          _departmentController.text = data?['department'] ?? '';
+          _idController.text = data?['facultyId'] ?? '';
+        });
+      }
+    }
   }
 
   Future<void> _loadProfile() async {
     final profile = await _authService.getSupervisorProfile();
 
     if (profile != null) {
-      // Parse strings to get values for dropdowns
       String specializationString = profile['specialization'] ?? '';
       String preferenceAreasString = profile['preferenceAreas'] ?? '';
-      String projectHistoryCategoriesString = profile['projectHistoryCategories'] ?? '';
-      
-      // Set selected dropdown values
+      String projectHistoryCategoriesString =
+          profile['projectHistoryCategories'] ?? '';
+
       _selectedSpecialization = specializationString;
-      
-      _selectedPreferenceAreas = preferenceAreasString.isNotEmpty 
-          ? preferenceAreasString.split(', ').where((i) => i.trim().isNotEmpty).toList()
-          : [];
-          
-      _selectedProjectHistoryCategories = projectHistoryCategoriesString.isNotEmpty 
-          ? projectHistoryCategoriesString.split(', ').where((s) => s.trim().isNotEmpty).toList()
-          : [];
-      
-      // Try to parse project count
+
+      _selectedPreferenceAreas =
+          preferenceAreasString.isNotEmpty
+              ? preferenceAreasString
+                  .split(', ')
+                  .where((i) => i.trim().isNotEmpty)
+                  .toList()
+              : [];
+
+      _selectedProjectHistoryCategories =
+          projectHistoryCategoriesString.isNotEmpty
+              ? projectHistoryCategoriesString
+                  .split(', ')
+                  .where((s) => s.trim().isNotEmpty)
+                  .toList()
+              : [];
+
       try {
         _projectCount = int.parse(profile['projectCount'] ?? '0');
       } catch (e) {
         _projectCount = 0;
       }
-          
+
       setState(() {
-        _nameController.text = profile['name'] ?? '';
-        _departmentController.text = profile['department'] ?? '';
         _projectsHistoryController.text = profile['projectsHistory'] ?? '';
         _specializationController.text = profile['specialization'] ?? '';
-        _idController.text = profile['id'] ?? '';
         _hasData = true;
         _isEditing = false;
       });
@@ -192,6 +221,8 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
     });
   }
 
+  /// Use your existing _buildSingleSelectDropdown, _buildMultiSelectDropdown, _buildProjectCountField, _buildFormField here
+  /// No changes required for these widgets.
   // Single select dropdown for specialization
   Widget _buildSingleSelectDropdown({
     required String label,
@@ -245,46 +276,48 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
             const SizedBox(height: 12),
             _isEditing
                 ? Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedValue.isNotEmpty ? selectedValue : null,
-                        hint: Text(
-                          hintText ?? 'Select $label',
-                          style: TextStyle(color: Colors.grey[500]),
-                        ),
-                        isExpanded: true,
-                        icon: Icon(Icons.arrow_drop_down, color: iconColor),
-                        items: options.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (newValue) {
-                          if (newValue != null) {
-                            onChanged(newValue);
-                          }
-                        },
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedValue.isNotEmpty ? selectedValue : null,
+                      hint: Text(
+                        hintText ?? 'Select $label',
+                        style: TextStyle(color: Colors.grey[500]),
                       ),
+                      isExpanded: true,
+                      icon: Icon(Icons.arrow_drop_down, color: iconColor),
+                      items:
+                          options.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                      onChanged: (newValue) {
+                        if (newValue != null) {
+                          onChanged(newValue);
+                        }
+                      },
                     ),
-                  )
+                  ),
+                )
                 : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: selectedValue.isEmpty
-                        ? Text(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child:
+                      selectedValue.isEmpty
+                          ? Text(
                             'Not provided',
                             style: TextStyle(
                               fontSize: 16,
@@ -292,32 +325,28 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                               fontStyle: FontStyle.italic,
                             ),
                           )
-                        : Text(
+                          : Text(
                             selectedValue,
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey[800],
                             ),
                           ),
-                  ),
+                ),
             if (isRequired && selectedValue.isEmpty && _isEditing)
               Padding(
                 padding: const EdgeInsets.only(top: 8, left: 12),
                 child: Text(
                   'Please select a $label',
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
               ),
           ],
         ),
       ),
     );
-  }
+  } // Multi-select dropdown for preference areas and project history
 
-  // Multi-select dropdown for preference areas and project history
   Widget _buildMultiSelectDropdown({
     required String label,
     required IconData icon,
@@ -370,69 +399,71 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
             const SizedBox(height: 12),
             _isEditing
                 ? Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ...options.map((option) {
-                          final isSelected = selectedValues.contains(option);
-                          return FilterChip(
-                            label: Text(
-                              option,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.grey[800],
-                                fontSize: 14,
-                              ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              List<String> newValues = [...selectedValues];
-                              if (selected) {
-                                newValues.add(option);
-                              } else {
-                                newValues.remove(option);
-                              }
-                              onChanged(newValues);
-                            },
-                            backgroundColor: Colors.grey[100],
-                            selectedColor: iconColor,
-                            checkmarkColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          );
-                        }),
-                        if (isRequired && selectedValues.isEmpty && _isEditing)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              'Please select at least one option',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: 12,
-                              ),
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ...options.map((option) {
+                        final isSelected = selectedValues.contains(option);
+                        return FilterChip(
+                          label: Text(
+                            option,
+                            style: TextStyle(
+                              color:
+                                  isSelected ? Colors.white : Colors.grey[800],
+                              fontSize: 14,
                             ),
                           ),
-                      ],
-                    ),
-                  )
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            List<String> newValues = [...selectedValues];
+                            if (selected) {
+                              newValues.add(option);
+                            } else {
+                              newValues.remove(option);
+                            }
+                            onChanged(newValues);
+                          },
+                          backgroundColor: Colors.grey[100],
+                          selectedColor: iconColor,
+                          checkmarkColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        );
+                      }),
+                      if (isRequired && selectedValues.isEmpty && _isEditing)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Please select at least one option',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          ),
+                        ),
+                    ],
+                  ),
+                )
                 : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: selectedValues.isEmpty
-                        ? Text(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child:
+                      selectedValues.isEmpty
+                          ? Text(
                             'Not provided',
                             style: TextStyle(
                               fontSize: 16,
@@ -440,35 +471,39 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                               fontStyle: FontStyle.italic,
                             ),
                           )
-                        : Wrap(
+                          : Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: selectedValues
-                                .map(
-                                  (value) => Chip(
-                                    label: Text(
-                                      value,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
+                            children:
+                                selectedValues
+                                    .map(
+                                      (value) => Chip(
+                                        label: Text(
+                                          value,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        backgroundColor: iconColor.withOpacity(
+                                          0.8,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    backgroundColor: iconColor.withOpacity(0.8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
+                                    )
+                                    .toList(),
                           ),
-                  ),
+                ),
           ],
         ),
       ),
     );
-  }
+  } // Counter widget for number of projects
 
-  // Counter widget for number of projects
   Widget _buildProjectCountField({
     required IconData icon,
     required Color iconColor,
@@ -516,89 +551,98 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
             const SizedBox(height: 12),
             _isEditing
                 ? Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                          onPressed: () {
-                            if (_projectCount > 0) {
-                              setState(() {
-                                _projectCount--;
-                              });
-                            }
-                          },
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _projectCount.toString(),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.teal),
-                          onPressed: () {
-                            setState(() {
-                              _projectCount++;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  )
-                : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _projectCount.toString(),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Projects Supervised',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[800],
-                          ),
-                        ),
-                      ],
-                    ),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
                   ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.remove_circle_outline,
+                          color: Colors.red,
+                        ),
+                        onPressed: () {
+                          if (_projectCount > 0) {
+                            setState(() {
+                              _projectCount--;
+                            });
+                          }
+                        },
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _projectCount.toString(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add_circle_outline,
+                          color: Colors.teal,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _projectCount++;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                )
+                : Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _projectCount.toString(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Projects Supervised',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+                      ),
+                    ],
+                  ),
+                ),
           ],
         ),
       ),
@@ -738,7 +782,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
             fontSize: 20,
           ),
         ),
-        backgroundColor: Color.fromARGB(255, 24, 81, 91),
+        backgroundColor: const Color.fromARGB(255, 24, 81, 91),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
@@ -759,11 +803,9 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
       ),
       body: Column(
         children: [
-          // Header Section
           Container(
             decoration: const BoxDecoration(
               color: Color.fromARGB(255, 24, 81, 91),
-
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -791,7 +833,6 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-
                           children: [
                             Text(
                               _isEditing
@@ -859,9 +900,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
               ),
             ),
           ),
-
           const SizedBox(height: 24),
-
           // Form Section
           Expanded(
             child: SingleChildScrollView(
@@ -886,7 +925,6 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                                   Color.fromARGB(255, 133, 213, 231),
                                 ],
                               ),
-
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(
@@ -916,9 +954,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                           ),
                         ],
                       ),
-                    ),
-
-                    // Form Fields
+                    ), // Form Fields
                     _buildFormField(
                       controller: _nameController,
                       label: 'Supervisor Name',
@@ -929,7 +965,6 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                           (value) =>
                               value!.isEmpty ? 'Please enter your name' : null,
                     ),
-
                     _buildFormField(
                       controller: _departmentController,
                       label: 'Department',
@@ -942,7 +977,6 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                                   ? 'Please enter your department'
                                   : null,
                     ),
-
                     _buildFormField(
                       controller: _projectsHistoryController,
                       label: 'Projects History',
@@ -954,9 +988,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                               value!.isEmpty
                                   ? 'Please enter total projects supervised by you'
                                   : null,
-                    ),
-
-                    // Single select dropdown for specialization
+                    ), // Single select dropdown for specialization
                     _buildSingleSelectDropdown(
                       label: 'Specialization',
                       icon: Icons.lightbulb_outline,
@@ -970,9 +1002,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                       },
                       hintText: 'Select your specialization',
                       isRequired: true,
-                    ),
-                    
-                    // Multi-select dropdown for preference areas
+                    ), // Multi-select dropdown for preference areas
                     _buildMultiSelectDropdown(
                       label: 'Preference Areas',
                       icon: Icons.favorite_outline,
@@ -986,9 +1016,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                       },
                       hintText: 'Select your preferred areas for supervision',
                       isRequired: true,
-                    ),
-                    
-                    // Multi-select dropdown for project history categories
+                    ), // Multi-select dropdown for project history categories
                     _buildMultiSelectDropdown(
                       label: 'Projects History Categories',
                       icon: Icons.history,
@@ -1001,15 +1029,12 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                         });
                       },
                       hintText: 'Select categories of past projects',
-                    ),
-                    
-                    // Project count widget
+                    ), // Project count widget
                     _buildProjectCountField(
                       icon: Icons.assignment_turned_in,
                       iconColor: Colors.teal,
                       hintText: 'Number of projects supervised',
                     ),
-
                     _buildFormField(
                       controller: _idController,
                       label: 'Supervisor ID',
@@ -1017,10 +1042,9 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                       iconColor: Colors.purple,
                       hintText: 'Enter your ID',
                     ),
-
-                    const SizedBox(height: 20),
-
-                    // Save Button (only show when editing)
+                    const SizedBox(
+                      height: 20,
+                    ), // Save Button (only show when editing)
                     if (_isEditing) ...[
                       Container(
                         width: double.infinity,
@@ -1066,9 +1090,7 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                    ],
-
-                    // Info Card
+                    ], // Info Card
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1116,7 +1138,6 @@ class _SupervisorProfilePageState extends State<SupervisorProfilePage> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 60),
                   ],
                 ),

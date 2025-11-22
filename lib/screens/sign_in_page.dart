@@ -19,7 +19,6 @@ class _SignInPageState extends State<SignInPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
-  bool _rememberMe = false;
 
   final AuthService _authService = AuthService();
 
@@ -30,7 +29,6 @@ class _SignInPageState extends State<SignInPage> {
     super.dispose();
   }
 
- 
   Future<void> _handleSignIn() async {
     if (_formKey.currentState!.validate()) {
       try {
@@ -39,7 +37,7 @@ class _SignInPageState extends State<SignInPage> {
           password: _passwordController.text.trim(),
         );
 
-        final UserCredential userCredential = result['credential'];
+     //   final UserCredential userCredential = result['credential'];
         final roleRaw = result['role'];
 
         if (roleRaw == null || roleRaw is! String || roleRaw.trim().isEmpty) {
@@ -52,7 +50,6 @@ class _SignInPageState extends State<SignInPage> {
         String role = roleRaw.toString().toLowerCase().trim();
         print("User role detected: '$role' (original: '$roleRaw')");
 
-        // Make case-insensitive comparison
         if (role == 'student') {
           Navigator.pushReplacement(
             context,
@@ -66,14 +63,19 @@ class _SignInPageState extends State<SignInPage> {
         } else if (role == 'admin') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => AdminDashboard(currentUserId: FirebaseAuth.instance.currentUser!.uid)),
+            MaterialPageRoute(
+              builder: (_) => AdminDashboard(
+                currentUserId: FirebaseAuth.instance.currentUser!.uid,
+              ),
+            ),
           );
         } else {
-          // If role doesn't match expected values, show error and role value
           print("Unrecognized role: '$role'");
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("Dashboard for role '$role' not available. Please contact support."),
+              content: Text(
+                "Dashboard for role '$role' not available. Please contact support.",
+              ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
             ),
@@ -107,12 +109,9 @@ class _SignInPageState extends State<SignInPage> {
       backgroundColor: const Color(0xFFF5F5F5),
       body: Stack(
         children: [
-          // Background image
           Positioned.fill(
             child: Image.asset('assets/appBg.jpeg', fit: BoxFit.cover),
           ),
-
-          // Foreground content
           SafeArea(
             child: SingleChildScrollView(
               child: ConstrainedBox(
@@ -124,7 +123,6 @@ class _SignInPageState extends State<SignInPage> {
                     children: [
                       const SizedBox(height: 100),
 
-                      // Title
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 24.0),
                         child: Align(
@@ -142,7 +140,6 @@ class _SignInPageState extends State<SignInPage> {
 
                       const SizedBox(height: 40),
 
-                      // Sign-in form container
                       Expanded(
                         child: Container(
                           width: double.infinity,
@@ -169,7 +166,8 @@ class _SignInPageState extends State<SignInPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const SizedBox(height: 30),
-                                  // Email Field
+
+                                  // Email
                                   Container(
                                     decoration: BoxDecoration(
                                       color: Colors.grey[50],
@@ -183,17 +181,11 @@ class _SignInPageState extends State<SignInPage> {
                                       keyboardType: TextInputType.emailAddress,
                                       decoration: const InputDecoration(
                                         hintText: 'Enter Your Email',
-                                        hintStyle: TextStyle(
-                                          color: Colors.grey,
-                                        ),
+                                        hintStyle: TextStyle(color: Colors.grey),
                                         prefixIcon: Icon(
                                           Icons.email_outlined,
-                                          color: Color.fromARGB(
-                                            255,
-                                            133,
-                                            213,
-                                            231,
-                                          ),
+                                          color:
+                                              Color.fromARGB(255, 133, 213, 231),
                                         ),
                                         border: InputBorder.none,
                                         contentPadding: EdgeInsets.symmetric(
@@ -212,7 +204,7 @@ class _SignInPageState extends State<SignInPage> {
 
                                   const SizedBox(height: 25),
 
-                                  // Password Field
+                                  // Password
                                   Container(
                                     decoration: BoxDecoration(
                                       color: Colors.grey[50],
@@ -226,17 +218,12 @@ class _SignInPageState extends State<SignInPage> {
                                       obscureText: !_isPasswordVisible,
                                       decoration: InputDecoration(
                                         hintText: 'Enter Your Password',
-                                        hintStyle: const TextStyle(
-                                          color: Colors.grey,
-                                        ),
+                                        hintStyle:
+                                            const TextStyle(color: Colors.grey),
                                         prefixIcon: const Icon(
                                           Icons.lock_outline,
-                                          color: Color.fromARGB(
-                                            255,
-                                            133,
-                                            213,
-                                            231,
-                                          ),
+                                          color:
+                                              Color.fromARGB(255, 133, 213, 231),
                                         ),
                                         suffixIcon: IconButton(
                                           icon: Icon(
@@ -255,9 +242,9 @@ class _SignInPageState extends State<SignInPage> {
                                         border: InputBorder.none,
                                         contentPadding:
                                             const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 16,
-                                            ),
+                                          horizontal: 16,
+                                          vertical: 16,
+                                        ),
                                       ),
                                       validator: (value) {
                                         if (value == null || value.isEmpty) {
@@ -270,85 +257,28 @@ class _SignInPageState extends State<SignInPage> {
 
                                   const SizedBox(height: 16),
 
-                                  // Remember Me and Forgot Password
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 20,
-                                            height: 20,
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  _rememberMe
-                                                      ? Color.fromARGB(
-                                                        255,
-                                                        133,
-                                                        213,
-                                                        231,
-                                                      )
-                                                      : Colors.transparent,
-                                              border: Border.all(
-                                                color: Color.fromARGB(
-                                                  255,
-                                                  133,
-                                                  213,
-                                                  231,
-                                                ),
-                                                width: 2,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: InkWell(
-                                              onTap: () {
-                                                setState(() {
-                                                  _rememberMe = !_rememberMe;
-                                                });
-                                              },
-                                              child:
-                                                  _rememberMe
-                                                      ? const Icon(
-                                                        Icons.check,
-                                                        size: 14,
-                                                        color: Colors.white,
-                                                      )
-                                                      : null,
-                                            ),
+                                  // Only Forgot Password (removed Remember Me)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const ForgotPasswordPage(),
                                           ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Remember me',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (_) =>
-                                                      const ForgotPasswordPage(),
-                                            ),
-                                          );
-                                        },
-                                        child: const Text(
-                                          'Forgot Password?',
-                                          style: TextStyle(
-                                            color: Color(0xFFFF8A50),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                                        );
+                                      },
+                                      child: const Text(
+                                        'Forgot Password?',
+                                        style: TextStyle(
+                                          color: Color(0xFFFF8A50),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ),
 
                                   const SizedBox(height: 24),
@@ -360,17 +290,11 @@ class _SignInPageState extends State<SignInPage> {
                                     child: ElevatedButton(
                                       onPressed: _handleSignIn,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Color.fromARGB(
-                                          255,
-                                          24,
-                                          81,
-                                          91,
-                                        ),
-
+                                        backgroundColor:
+                                            const Color.fromARGB(255, 24, 81, 91),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            25,
-                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(25),
                                         ),
                                         elevation: 0,
                                       ),
@@ -403,8 +327,8 @@ class _SignInPageState extends State<SignInPage> {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder:
-                                                  (_) => const SignUpPage(),
+                                              builder: (_) =>
+                                                  const SignUpPage(),
                                             ),
                                           );
                                         },

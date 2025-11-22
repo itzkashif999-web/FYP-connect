@@ -1,10 +1,9 @@
-import 'dart:io';
+
 
 import 'package:app_settings/app_settings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fyp_connect/chats%20and%20notifications/chat_screen.dart';
@@ -102,26 +101,7 @@ class NotificationService {
 
   void firebaseInit(BuildContext context) {
     print("🔔 firebaseInit called");
-    // FirebaseMessaging.onMessage.listen((message) {
-    //   if (kDebugMode) {
-    //     if (message.notification != null) {
-    //       print('Notification Title: ${message.notification!.title}');
-    //       print('Notification Body: ${message.notification!.body}');
-    //     } else {
-    //       print('Data-only message: ${message.data}');
-    //     }
-    //     // print('notification title: ${notification!.title}');
-    //     // print('notification body: ${notification.body}');
-    //   }
-    //   if (Platform.isIOS) {
-    //     iosForegroundMessage();
-    //   }
-    //   if (Platform.isAndroid) {
-    //     initLocalNotification(context, message);
-    //     //   handleMessage(context, message);
-    //     showNotification(message);
-    //   }
-    // });
+ 
     FirebaseMessaging.onMessage.listen((message) {
       final senderId = message.data['senderId'] ?? '';
 

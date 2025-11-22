@@ -1,20 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'webview_page.dart'; // Make sure you have this page for opening PDFs
+import 'package:url_launcher/url_launcher.dart';
 
 class SupervisorGroupsPage extends StatelessWidget {
   const SupervisorGroupsPage({super.key});
 
-  /// Opens file in Google Docs viewer inside WebView
-  void openFileInWebView(BuildContext context, String url, String title) {
-    final viewerUrl = 'https://docs.google.com/gview?embedded=true&url=$url';
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => WebViewPage(title: title, url: viewerUrl),
-      ),
-    );
+  /// Open file externally using url_launcher
+  /// For PDFs/DOCs, uses Google Docs Viewer to prevent WebView crashes
+  Future<void> openFileExternal(String url, BuildContext context) async {
+    try {
+      Uri uri;
+      if (url.endsWith('.pdf')) {
+        uri = Uri.parse(url); // Open PDF directly
+      } else if (url.endsWith('.doc') || url.endsWith('.docx')) {
+        // Use Google Docs Viewer for Word files
+        final viewerUrl =
+            'https://docs.google.com/gview?embedded=true&url=$url';
+        uri = Uri.parse(viewerUrl);
+      } else {
+        uri = Uri.parse(url); // Fallback
+      }
+
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Cannot open this file: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -34,11 +50,12 @@ class SupervisorGroupsPage extends StatelessWidget {
                 .collection('supervisor_groups')
                 .where('supervisorId', isEqualTo: supervisorId)
                 .orderBy('createdAt', descending: true)
-                .snapshots(), // ✅ Listen in real-time
+                .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text("No groups yet."));
           }
@@ -49,9 +66,11 @@ class SupervisorGroupsPage extends StatelessWidget {
             itemCount: groups.length,
             itemBuilder: (context, index) {
               final group = groups[index].data() as Map<String, dynamic>;
+
               final projectTitle = group['projectTitle'] ?? "Untitled";
               final studentName = group['studentName'] ?? "Unknown";
-
+              final regNo = group['registrationNumber'] ?? "N/A";
+              final groupMembers = group['groupMembers'] ?? "N/A";
               final fileUrl = group['fileUrl'] ?? "";
 
               return Card(
@@ -72,35 +91,32 @@ class SupervisorGroupsPage extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text("Student: $studentName"),
-                      const SizedBox(height: 10),
+                      Text("Reg No: $regNo"),
+                      Text("Group Members: $groupMembers"),
+                      const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            if (fileUrl.isNotEmpty) {
-                              openFileInWebView(context, fileUrl, projectTitle);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("File URL missing"),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(
-                            Icons.remove_red_eye,
+                          onPressed:
+                              fileUrl.isNotEmpty
+                                  ? () => openFileExternal(fileUrl, context)
+                                  : null,
+                          icon: Icon(
+                            fileUrl.isNotEmpty
+                                ? Icons.remove_red_eye
+                                : Icons.hourglass_top,
                             color: Colors.white,
                           ),
-                          label: const Text("View Proposal"),
+                          label: Text(
+                            fileUrl.isNotEmpty ? "View Proposal" : "Pending",
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(
-                              255,
-                              24,
-                              81,
-                              91,
-                            ),
+                            backgroundColor:
+                                fileUrl.isNotEmpty
+                                    ? const Color.fromARGB(255, 24, 81, 91)
+                                    : Colors.orange,
                             foregroundColor: Colors.white,
                           ),
                         ),

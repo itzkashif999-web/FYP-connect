@@ -1,8 +1,8 @@
-
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:fyp_connect/auth/cloudinary_service.dart';
 import 'package:fyp_connect/chats%20and%20notifications/notifications/services/send_notification_service.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
@@ -166,20 +166,27 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> sendChatImage(ChatUser chatUser, File file) async {
-    if (currentUser == null || chatUser.id.isEmpty) return;
+ 
+Future<void> sendChatImage(ChatUser chatUser, File file) async {
+  if (currentUser == null || chatUser.id.isEmpty) return;
 
-    final appDir = await getApplicationDocumentsDirectory();
-    final localFile = File(
-      '${appDir.path}/chat_${DateTime.now().millisecondsSinceEpoch}.png',
-    );
-    await file.copy(localFile.path);
+  try {
+    // Upload to Cloudinary
+    final cloudinaryService = CloudinaryService();
+    final imageUrl = await cloudinaryService.uploadFile(file);
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('chat_image_${localFile.path}', localFile.path);
+    if (imageUrl == null) {
+      print("❌ Cloudinary upload failed");
+      return;
+    }
 
-    await sendMessage(localFile.path, chatUser, type: Type.image);
+    // Save message with Cloudinary URL
+    await sendMessage(imageUrl, chatUser, type: Type.image);
+    print("✅ Image uploaded and message sent with Cloudinary URL");
+  } catch (e) {
+    print("❌ Error sending chat image: $e");
   }
+}
 
   Future<void> updateMessageReadStatus(Message message) async {
     try {

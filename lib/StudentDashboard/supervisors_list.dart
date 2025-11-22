@@ -1,4 +1,3 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,22 +6,26 @@ import 'submit_proposal_page.dart';
 class Supervisor {
   final String name;
   final String department;
-  final String expertise;
   final double rating;
   final String interest;
-  final List<String> specializations;
-  final String availability;
+  final List<String> specialization;
   final String email;
   final String id;
+  final List projectsHistory;
+  final List projectsHistoryCategories;
+  final List preferenceAreas;
+  final String availability = 'Available'; // Default availability status
 
   Supervisor({
     required this.name,
     required this.department,
-    required this.expertise,
+
     required this.rating,
     required this.interest,
-    required this.specializations,
-    required this.availability,
+    required this.specialization,
+    required this.preferenceAreas,
+    required this.projectsHistory,
+    required this.projectsHistoryCategories,
     required this.email,
     required this.id,
   });
@@ -89,21 +92,34 @@ class _SupervisorListPageState extends State<SupervisorListPage>
             .collection('supervisor_profiles')
             .get();
 
-    final data =
+    List<Supervisor> data =
         snapshot.docs.map((doc) {
           final d = doc.data();
+
+          // Helper to normalize list fields
+          List<String> normalize(dynamic value) {
+            if (value == null) return [];
+            if (value is List) return value.map((e) => e.toString()).toList();
+            if (value is String) {
+              return value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+            }
+            return [];
+          }
+
           return Supervisor(
             id: d['id'] ?? doc.id,
             name: d['name'] ?? 'N/A',
             department: d['department'] ?? 'N/A',
-            expertise: d['interest'] ?? 'N/A',
             rating: (d['rating'] ?? 0).toDouble(),
-            interest: d['projectsHistory'] ?? 'N/A',
-            specializations:
-                d['specializations'] != null
-                    ? List<String>.from(d['specializations'])
-                    : [],
-            availability: d['availability'] ?? 'Available',
+            interest: d['projectsHistory']?.toString() ?? 'N/A',
+            specialization: normalize(d['specialization']),
+            preferenceAreas: normalize(d['preferenceAreas']),
+            projectsHistory: normalize(d['projectsHistory']),
+            projectsHistoryCategories: normalize(d['projectHistoryCategories']),
             email: d['email'] ?? 'N/A',
           );
         }).toList();
@@ -232,13 +248,23 @@ class _SupervisorListPageState extends State<SupervisorListPage>
                     ],
                   ),
                   const SizedBox(height: 30),
-                  _buildDetailRow('Expertise', supervisor.expertise),
-                  _buildDetailRow('Experience', supervisor.interest),
-                  _buildDetailRow('Email', supervisor.email),
+                  _buildDetailRow(
+                    'Specialization',
+                    supervisor.specialization.join(', '),
+                  ),
+
+                  _buildDetailRow(
+                    'Projects History',
+                    supervisor.projectsHistory.join(', '),
+                  ),
+                  _buildDetailRow(
+                    'Project History Categories',
+                    supervisor.projectsHistoryCategories.join(', '),
+                  ),
                   const SizedBox(height: 20),
-                  if (supervisor.specializations.isNotEmpty) ...[
+                  if (supervisor.preferenceAreas.isNotEmpty) ...[
                     const Text(
-                      'Specializations',
+                      'Preference Areas',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -250,9 +276,9 @@ class _SupervisorListPageState extends State<SupervisorListPage>
                       spacing: 8,
                       runSpacing: 8,
                       children:
-                          supervisor.specializations
+                          supervisor.preferenceAreas
                               .map(
-                                (spec) => Container(
+                                (area) => Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 6,
@@ -275,7 +301,7 @@ class _SupervisorListPageState extends State<SupervisorListPage>
                                     ),
                                   ),
                                   child: Text(
-                                    spec,
+                                    area,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color.fromARGB(255, 24, 81, 91),
@@ -287,55 +313,8 @@ class _SupervisorListPageState extends State<SupervisorListPage>
                               .toList(),
                     ),
                   ],
+
                   const SizedBox(height: 30),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color.fromARGB(255, 24, 81, 91),
-                            Color.fromARGB(255, 133, 213, 231),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: ElevatedButton(
-                        onPressed:
-                            _canApply
-                                ? () {
-                                  Navigator.pop(context);
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => SubmitProposalPage(
-                                            supervisorName: supervisor.name,
-                                            supervisorId: supervisor.id,
-                                          ),
-                                    ),
-                                  );
-                                }
-                                : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: const Text(
-                          'Submit Proposal',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
