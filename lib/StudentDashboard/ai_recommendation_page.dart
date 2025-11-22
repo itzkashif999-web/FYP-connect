@@ -84,6 +84,121 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
     }
   }
 
+  // Build pattern match details widget
+  Widget _buildPatternMatchDetails(Map<String, dynamic> matchDetails) {
+    final matchedInterests =
+        (matchDetails['matchedInterests'] as List<dynamic>?)?.cast<String>() ??
+        [];
+    final matchedSkills =
+        (matchDetails['matchedSkills'] as List<dynamic>?)?.cast<String>() ?? [];
+    final matchedAreas =
+        (matchDetails['matchedAreas'] as List<dynamic>?)?.cast<String>() ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (matchedInterests.isNotEmpty)
+            _buildMatchItem(
+              '🎯 Interests',
+              matchedInterests,
+              Colors.purple,
+            ),
+          if (matchedAreas.isNotEmpty)
+            _buildMatchItem(
+              '📚 Areas',
+              matchedAreas,
+              Colors.blue,
+            ),
+          if (matchedSkills.isNotEmpty)
+            _buildMatchItem(
+              '⚡ Skills',
+              matchedSkills,
+              Colors.green,
+            ),
+          if (matchedInterests.isEmpty &&
+              matchedAreas.isEmpty &&
+              matchedSkills.isEmpty)
+            const Text(
+              'Basic compatibility based on supervisor availability',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMatchItem(String label, List<String> items, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12),
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            TextSpan(
+              text: items.join(', '),
+              style: TextStyle(
+                color: color.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper methods for confidence indicators
+  Color _getConfidenceColor(String confidence) {
+    switch (confidence.toLowerCase()) {
+      case 'excellent':
+        return Colors.green;
+      case 'good':
+        return Colors.lightGreen;
+      case 'fair':
+        return Colors.orange;
+      case 'low':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getConfidenceIcon(String confidence) {
+    switch (confidence.toLowerCase()) {
+      case 'excellent':
+        return Icons.stars;
+      case 'good':
+        return Icons.thumb_up;
+      case 'fair':
+        return Icons.thumbs_up_down;
+      case 'low':
+        return Icons.info_outline;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  // Helper method for match percentage color
+  Color _getMatchColor(int percentage) {
+    if (percentage >= 75) return Colors.green;
+    if (percentage >= 50) return Colors.lightGreen;
+    if (percentage >= 25) return Colors.orange;
+    return Colors.red;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,6 +277,56 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
             ),
           ),
           const SizedBox(height: 20),
+
+          // Information banner about recommendation source
+          if (_recommendations.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _recommendations.first['recommendationSource'] == 'ai_rag'
+                    ? Colors.purple.withOpacity(0.1)
+                    : Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _recommendations.first['recommendationSource'] ==
+                          'ai_rag'
+                      ? Colors.purple.withOpacity(0.3)
+                      : Colors.blue.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _recommendations.first['recommendationSource'] == 'ai_rag'
+                        ? Icons.auto_awesome
+                        : Icons.pattern,
+                    color: _recommendations.first['recommendationSource'] ==
+                            'ai_rag'
+                        ? Colors.purple
+                        : Colors.blue,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _recommendations.first['recommendationSource'] == 'ai_rag'
+                          ? '✨ AI-powered recommendations using RAG (Retrieval-Augmented Generation) with Ollama LLM'
+                          : '📊 Pattern-based recommendations using algorithmic matching',
+                      style: TextStyle(
+                        color: _recommendations.first['recommendationSource'] ==
+                                'ai_rag'
+                            ? Colors.purple[800]
+                            : Colors.blue[800],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
 
           // Status indicators or Error messages
           if (_isLoading)
@@ -252,6 +417,9 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                   final matchPercentage = supervisor['matchPercentage'] ?? 0;
                   final specialization = supervisor['specialization'] ?? '';
                   final preferenceAreas = supervisor['preferenceAreas'] ?? '';
+                  final recommendationSource = supervisor['recommendationSource'] ?? 'pattern_matching';
+                  final confidenceScore = supervisor['confidenceScore'] ?? 'Fair';
+                  final isAiRecommendation = recommendationSource == 'ai_rag';
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 16),
@@ -273,31 +441,69 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                         children: [
                           Row(
                             children: [
-                              // AI Badge
+                              // Source Badge - AI or Pattern Matching
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Colors.purple, Colors.deepPurple],
+                                  gradient: LinearGradient(
+                                    colors: isAiRecommendation
+                                        ? [Colors.purple, Colors.deepPurple]
+                                        : [Colors.blue, Colors.blueAccent],
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      Icons.auto_awesome,
+                                      isAiRecommendation
+                                          ? Icons.auto_awesome
+                                          : Icons.pattern,
                                       color: Colors.white,
                                       size: 12,
                                     ),
-                                    SizedBox(width: 4),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'AI Match',
-                                      style: TextStyle(
+                                      isAiRecommendation ? 'AI RAG' : 'Pattern',
+                                      style: const TextStyle(
                                         color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              // Confidence Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getConfidenceColor(confidenceScore).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _getConfidenceColor(confidenceScore).withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _getConfidenceIcon(confidenceScore),
+                                      color: _getConfidenceColor(confidenceScore),
+                                      size: 12,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      confidenceScore,
+                                      style: TextStyle(
+                                        color: _getConfidenceColor(confidenceScore),
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -313,16 +519,16 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
+                                  color: _getMatchColor(matchPercentage).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(15),
                                   border: Border.all(
-                                    color: Colors.green.withOpacity(0.3),
+                                    color: _getMatchColor(matchPercentage).withOpacity(0.3),
                                   ),
                                 ),
                                 child: Text(
                                   '$matchPercentage% Match',
-                                  style: const TextStyle(
-                                    color: Colors.green,
+                                  style: TextStyle(
+                                    color: _getMatchColor(matchPercentage),
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -449,10 +655,14 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.05),
+                              color: isAiRecommendation
+                                  ? Colors.purple.withOpacity(0.05)
+                                  : Colors.blue.withOpacity(0.05),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: Colors.blue.withOpacity(0.1),
+                                color: isAiRecommendation
+                                    ? Colors.purple.withOpacity(0.1)
+                                    : Colors.blue.withOpacity(0.1),
                               ),
                             ),
                             child: Column(
@@ -460,16 +670,24 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.lightbulb_outline,
-                                      color: Colors.blue,
+                                    Icon(
+                                      isAiRecommendation
+                                          ? Icons.psychology_outlined
+                                          : Icons.analytics_outlined,
+                                      color: isAiRecommendation
+                                          ? Colors.purple
+                                          : Colors.blue,
                                       size: 16,
                                     ),
                                     const SizedBox(width: 8),
-                                    const Text(
-                                      'Why this match?',
+                                    Text(
+                                      isAiRecommendation
+                                          ? 'AI Analysis'
+                                          : 'Pattern Analysis',
                                       style: TextStyle(
-                                        color: Colors.blue,
+                                        color: isAiRecommendation
+                                            ? Colors.purple
+                                            : Colors.blue,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -477,21 +695,28 @@ class _AIRecommendationPageState extends State<AIRecommendationPage> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                if (supervisor['matchReason'] != null &&
+                                if (isAiRecommendation &&
+                                    supervisor['matchReason'] != null &&
                                     supervisor['matchReason']
                                         .toString()
                                         .isNotEmpty)
-                                  // Display AI-generated match reason if available
+                                  // Display AI-generated match reason
                                   Padding(
                                     padding: const EdgeInsets.only(left: 24),
                                     child: Text(
                                       supervisor['matchReason'].toString(),
                                       style: const TextStyle(
-                                        color: Colors.blue,
+                                        color: Colors.purple,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
+                                  )
+                                else if (!isAiRecommendation &&
+                                    supervisor['matchDetails'] != null)
+                                  // Display pattern matching details
+                                  _buildPatternMatchDetails(
+                                    supervisor['matchDetails'],
                                   )
                                 else
                                   // Fallback to showing specialization and preference areas

@@ -13,7 +13,7 @@ CORS(app)  # Enable CORS for all routes
 
 # Ollama API configuration
 OLLAMA_API_URL = os.getenv('OLLAMA_API_URL', 'http://localhost:11434/api/generate')
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', '3:1b')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'gemma3:1b')
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -28,11 +28,19 @@ def recommend_supervisors():
         student = data.get('student', {})
         supervisors = data.get('supervisors', [])
         
+        print(f"\n{'='*60}")
+        print(f"📥 Received recommendation request")
+        print(f"👨‍🎓 Student interests: {student.get('interest', 'N/A')}")
+        print(f"⚡ Student skills: {student.get('skills', 'N/A')}")
+        print(f"👨‍🏫 Number of supervisors: {len(supervisors)}")
+        
         if not student or not supervisors:
+            print("❌ Missing student or supervisors data")
             return jsonify({"error": "Missing student or supervisors data"}), 400
         
         # Format the prompt for Ollama
         prompt = format_prompt(student, supervisors)
+        print(f"📝 Prompt length: {len(prompt)} characters")
         
         # Get recommendations from Ollama
         recommendations = get_ollama_recommendations(prompt)
@@ -40,13 +48,18 @@ def recommend_supervisors():
         # Process and enhance the recommendations
         processed_recommendations = process_recommendations(recommendations, supervisors)
         
+        print(f"✅ Returning {len(processed_recommendations)} processed recommendations")
+        print(f"{'='*60}\n")
+        
         return jsonify({
             "recommendations": processed_recommendations,
             "ai_explanation": recommendations.get("explanation", "")
         })
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 def format_prompt(student, supervisors):
@@ -80,45 +93,47 @@ def format_prompt(student, supervisors):
             f"- Project History: {', '.join(project_history)}\n"
         )
     
-    # Construct the full prompt
-    prompt = f"""You are an academic advisor specializing in matching students with the best thesis supervisors.
+    # Construct the full prompt with clear JSON instructions
+    prompt = f"""You are an academic advisor. Match students with thesis supervisors.
 
-STUDENT PROFILE:
-- Interests: {', '.join(student_interests)}
-- Skills: {', '.join(student_skills)}
+STUDENT:
+Interests: {', '.join(student_interests) if student_interests else 'Not specified'}
+Skills: {', '.join(student_skills) if student_skills else 'Not specified'}
 
-AVAILABLE SUPERVISORS:
+SUPERVISORS:
 {''.join(supervisor_descriptions)}
 
-TASK: Recommend the best supervisors for this student based on how well their interests, specialization, and project history align with the student's interests and skills. 
+TASK: Rank the top 3-5 supervisors for this student based on matching interests and skills.
 
-Provide your recommendations in order of best match to least good match. For each recommendation, explain why they would be a good match, focusing on specific overlapping interests or complementary skills.
-
-Format your response as a JSON array of objects with this structure:
+IMPORTANT: Respond ONLY with valid JSON in this exact format:
 {{
   "supervisorRanking": [
-    {{ "supervisorNumber": 1, "matchReason": "explanation" }},
-    {{ "supervisorNumber": 3, "matchReason": "explanation" }}
+    {{"supervisorNumber": 1, "matchReason": "Shares interest in AI and has ML expertise"}},
+    {{"supervisorNumber": 2, "matchReason": "Python skills match project requirements"}}
   ],
-  "explanation": "brief overall explanation of your recommendations"
+  "explanation": "These supervisors match the student's technical interests"
 }}
+
+Do not include any text before or after the JSON. Start with {{ and end with }}.
 """
     return prompt
 
 def get_ollama_recommendations(prompt):
     """Send a prompt to Ollama and get recommendations"""
     try:
+        print(f"🤖 Calling Ollama API with model: {OLLAMA_MODEL}")
         response = requests.post(
             OLLAMA_API_URL,
             json={
                 "model": OLLAMA_MODEL,
                 "prompt": prompt,
                 "stream": False
-            }
+            },
+            timeout=60  # Increase timeout for LLM response
         )
         
         if response.status_code != 200:
-            print(f"Ollama API error: {response.text}")
+            print(f"❌ Ollama API error: {response.status_code} - {response.text}")
             return {
                 "supervisorRanking": [],
                 "explanation": "Error communicating with AI model"
@@ -128,6 +143,9 @@ def get_ollama_recommendations(prompt):
         result = response.json()
         response_text = result.get('response', '')
         
+        print(f"📝 Ollama response length: {len(response_text)} characters")
+        print(f"📝 Ollama response preview: {response_text[:200]}...")
+        
         # Try to extract JSON from the response text
         try:
             # Find JSON pattern in the response
@@ -136,16 +154,25 @@ def get_ollama_recommendations(prompt):
             
             if json_start >= 0 and json_end > json_start:
                 json_str = response_text[json_start:json_end]
-                return json.loads(json_str)
+                parsed = json.loads(json_str)
+                print(f"✅ Successfully parsed JSON with {len(parsed.get('supervisorRanking', []))} recommendations")
+                return parsed
             else:
+                print("⚠️ No JSON found in response, trying direct parse")
                 # Fallback: try to parse the response as JSON directly
                 return json.loads(response_text)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as je:
+            print(f"⚠️ JSON decode error: {je}")
+            print(f"⚠️ Attempting text parsing fallback")
             # If we can't extract JSON, create a simplified response
-            return process_text_response(response_text)
+            result = process_text_response(response_text)
+            print(f"📊 Text parsing found {len(result.get('supervisorRanking', []))} recommendations")
+            return result
     
     except Exception as e:
-        print(f"Error calling Ollama API: {e}")
+        print(f"❌ Error calling Ollama API: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "supervisorRanking": [],
             "explanation": f"Error: {str(e)}"
@@ -189,35 +216,75 @@ def process_recommendations(ollama_response, supervisors):
     """Process Ollama's recommendations and combine with supervisor data"""
     rankings = ollama_response.get("supervisorRanking", [])
     
+    print(f"📊 Processing {len(rankings)} rankings for {len(supervisors)} supervisors")
+    
+    # If no rankings, return empty list (will trigger fallback in Flutter)
+    if not rankings:
+        print("⚠️ No rankings provided by AI")
+        return []
+    
     # Map supervisor numbers to actual supervisors with their data
     processed_recommendations = []
     
-    for rank in rankings:
+    for idx, rank in enumerate(rankings, 1):
         sup_num = rank.get("supervisorNumber")
+        print(f"  - Rank {idx}: Supervisor #{sup_num}")
+        
         # Supervisor numbers are 1-indexed in the prompt but supervisors list is 0-indexed
-        if 1 <= sup_num <= len(supervisors):
+        if sup_num and 1 <= sup_num <= len(supervisors):
             supervisor = supervisors[sup_num - 1]
+            match_percentage = calculate_match_percentage(idx, len(rankings))
             processed_recommendations.append({
                 **supervisor,
-                "matchReason": rank.get("matchReason", ""),
+                "matchReason": rank.get("matchReason", "Good match based on interests and skills"),
                 "aiRecommended": True,
-                "matchPercentage": calculate_match_percentage(sup_num, len(rankings)),
+                "matchPercentage": match_percentage,
+                "confidenceScore": calculate_confidence_from_percentage(match_percentage),
             })
+            print(f"    ✓ Added {supervisor.get('name', 'Unknown')} with {match_percentage}% match")
+        else:
+            print(f"    ✗ Invalid supervisor number: {sup_num}")
     
     return processed_recommendations
 
+def calculate_confidence_from_percentage(percentage):
+    """Calculate confidence level from match percentage"""
+    if percentage >= 85:
+        return "Excellent"
+    elif percentage >= 75:
+        return "Good"
+    elif percentage >= 55:
+        return "Fair"
+    else:
+        return "Low"
+
 def calculate_match_percentage(position, total):
-    """Calculate a match percentage based on position in recommendations"""
-    if total <= 1:
+    """
+    Calculate a match percentage based on position in recommendations
+    Uses a more robust scoring system:
+    - Rank 1: 85-95% (Excellent match)
+    - Rank 2: 75-84% (Very good match)
+    - Rank 3: 65-74% (Good match)
+    - Rank 4: 55-64% (Fair match)
+    - Rank 5+: 45-54% (Possible match)
+    """
+    if total <= 0:
+        return 70
+    
+    if position == 1:
         return 95
-    
-    # Calculate percentage, first position gets highest score
-    base_percentage = 95
-    step = 10
-    percentage = base_percentage - ((position - 1) * step)
-    
-    # Ensure percentage is between 50 and 95
-    return max(50, min(95, percentage))
+    elif position == 2:
+        return 85
+    elif position == 3:
+        return 75
+    elif position == 4:
+        return 65
+    elif position == 5:
+        return 55
+    else:
+        # For positions beyond 5, use declining scale
+        percentage = max(45, 55 - ((position - 5) * 5))
+        return percentage
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
