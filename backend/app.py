@@ -93,29 +93,32 @@ def format_prompt(student, supervisors):
             f"- Project History: {', '.join(project_history)}\n"
         )
     
-    # Construct the full prompt with clear JSON instructions
-    prompt = f"""You are an academic advisor. Match students with thesis supervisors.
+    # One-shot learning prompt - show example then ask
+    student_interest_str = ', '.join(student_interests) if student_interests else 'general computer science'
+    
+    # Build numbered supervisor list
+    supervisor_list = []
+    for i, supervisor in enumerate(supervisors, 1):
+        spec = supervisor.get('specialization', '')
+        pref = supervisor.get('preferenceAreas', [])
+        if isinstance(pref, str):
+            pref = pref if pref else ''
+        else:
+            pref = ', '.join(pref) if pref else ''
+        supervisor_list.append(f"#{i} {supervisor.get('name')}: Specialization={spec}, Preferences={pref}")
+    
+    prompt = f"""You are a matching system. Find which supervisors match the student's interests.
 
-STUDENT:
-Interests: {', '.join(student_interests) if student_interests else 'Not specified'}
-Skills: {', '.join(student_skills) if student_skills else 'Not specified'}
+Student wants: {student_interest_str}
 
-SUPERVISORS:
-{''.join(supervisor_descriptions)}
+Available supervisors:
+{chr(10).join(supervisor_list)}
 
-TASK: Rank the top 3-5 supervisors for this student based on matching interests and skills.
+Return ONLY valid JSON in this exact format:
+{{"supervisorRanking": [{{"supervisorNumber": 1, "matchReason": "reason here"}}], "explanation": "why matched"}}
 
-IMPORTANT: Respond ONLY with valid JSON in this exact format:
-{{
-  "supervisorRanking": [
-    {{"supervisorNumber": 1, "matchReason": "Shares interest in AI and has ML expertise"}},
-    {{"supervisorNumber": 2, "matchReason": "Python skills match project requirements"}}
-  ],
-  "explanation": "These supervisors match the student's technical interests"
-}}
-
-Do not include any text before or after the JSON. Start with {{ and end with }}.
-"""
+JSON:"""
+    
     return prompt
 
 def get_ollama_recommendations(prompt):
@@ -127,7 +130,13 @@ def get_ollama_recommendations(prompt):
             json={
                 "model": OLLAMA_MODEL,
                 "prompt": prompt,
-                "stream": False
+                "stream": False,
+                "options": {
+                    "temperature": 0.8,  # Higher = more diverse responses
+                    "top_p": 0.95,       # Wider sampling
+                    "top_k": 50,         # Consider more tokens
+                    "num_predict": 200   # Limit response length
+                }
             },
             timeout=60  # Increase timeout for LLM response
         )
