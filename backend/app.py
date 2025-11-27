@@ -45,8 +45,8 @@ def recommend_supervisors():
         # Get recommendations from Ollama
         recommendations = get_ollama_recommendations(prompt)
         
-        # Process and enhance the recommendations
-        processed_recommendations = process_recommendations(recommendations, supervisors)
+        # Process and enhance the recommendations with REAL score-based percentages
+        processed_recommendations = process_recommendations(recommendations, supervisors, student)
         
         print(f"✅ Returning {len(processed_recommendations)} processed recommendations")
         print(f"{'='*60}\n")
@@ -96,7 +96,7 @@ def format_prompt(student, supervisors):
     # One-shot learning prompt - show example then ask
     student_interest_str = ', '.join(student_interests) if student_interests else 'general computer science'
     
-    # Build numbered supervisor list
+    # Build detailed supervisor list with ALL information
     supervisor_list = []
     for i, supervisor in enumerate(supervisors, 1):
         spec = supervisor.get('specialization', '')
@@ -105,17 +105,38 @@ def format_prompt(student, supervisors):
             pref = pref if pref else ''
         else:
             pref = ', '.join(pref) if pref else ''
-        supervisor_list.append(f"#{i} {supervisor.get('name')}: Specialization={spec}, Preferences={pref}")
+        
+        history = supervisor.get('projectHistoryCategories', [])
+        if isinstance(history, str):
+            history = history if history else ''
+        else:
+            history = ', '.join(history) if history else ''
+            
+        supervisor_list.append(
+            f"Supervisor {i}: {supervisor.get('name')}\n"
+            f"  Expertise: {spec}\n"
+            f"  Focus Areas: {pref}\n"
+            f"  Past Projects: {history}"
+        )
     
-    prompt = f"""You are a matching system. Find which supervisors match the student's interests.
+    # Create keyword list from student interests
+    student_keywords = ', '.join([k.strip().lower() for k in student_interests]) if student_interests else ''
+    
+    prompt = f"""Match student to supervisors based on keyword overlap.
 
-Student wants: {student_interest_str}
+STUDENT INTERESTS (keywords): {student_keywords}
 
-Available supervisors:
+AVAILABLE SUPERVISORS:
 {chr(10).join(supervisor_list)}
 
-Return ONLY valid JSON in this exact format:
-{{"supervisorRanking": [{{"supervisorNumber": 1, "matchReason": "reason here"}}], "explanation": "why matched"}}
+INSTRUCTIONS:
+1. Find supervisors whose expertise/focus/projects contain ANY student keywords
+2. Rank by number of keyword matches (more matches = better)
+3. Each student gets DIFFERENT supervisors based on THEIR keywords
+4. Return 3-5 supervisors, best matches first
+
+OUTPUT (valid JSON only):
+{{"supervisorRanking": [{{"supervisorNumber": 1, "matchReason": "matched keywords: X, Y"}}], "explanation": "found N keyword matches"}}
 
 JSON:"""
     
@@ -132,10 +153,11 @@ def get_ollama_recommendations(prompt):
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "temperature": 0.8,  # Higher = more diverse responses
-                    "top_p": 0.95,       # Wider sampling
-                    "top_k": 50,         # Consider more tokens
-                    "num_predict": 200   # Limit response length
+                    "temperature": 1.2,  # Much higher for diversity - force different recommendations
+                    "top_p": 0.9,        # Allow more varied token selection
+                    "top_k": 100,        # Consider many more tokens for variety
+                    "num_predict": 300,  # Allow longer responses
+                    "repeat_penalty": 1.5  # Strongly penalize repetition
                 }
             },
             timeout=60  # Increase timeout for LLM response
@@ -221,7 +243,92 @@ def process_text_response(text):
         "explanation": explanation
     }
 
-def process_recommendations(ollama_response, supervisors):
+def calculate_keyword_match_score(student, supervisor):
+    """
+    Calculate actual match score based on keyword overlap (same logic as pattern matching)
+    Returns score between 0-100+ points
+    """
+    score = 0
+    
+    # Extract student interests and skills
+    student_interests = student.get('interest', [])
+    if isinstance(student_interests, str):
+        student_interests = [i.strip().lower() for i in student_interests.split(',') if i.strip()]
+    elif isinstance(student_interests, list):
+        student_interests = [str(i).strip().lower() for i in student_interests]
+    
+    student_skills = student.get('skills', [])
+    if isinstance(student_skills, str):
+        student_skills = [s.strip().lower() for s in student_skills.split(',') if s.strip()]
+    elif isinstance(student_skills, list):
+        student_skills = [str(s).strip().lower() for s in student_skills]
+    
+    # Extract supervisor data
+    specialization = str(supervisor.get('specialization', '')).lower()
+    
+    preference_areas = supervisor.get('preferenceAreas', [])
+    if isinstance(preference_areas, str):
+        preference_areas = [p.strip().lower() for p in preference_areas.split(',') if p.strip()]
+    elif isinstance(preference_areas, list):
+        preference_areas = [str(p).strip().lower() for p in preference_areas]
+    
+    project_history = supervisor.get('projectHistoryCategories', [])
+    if isinstance(project_history, str):
+        project_history = [p.strip().lower() for p in project_history.split(',') if p.strip()]
+    elif isinstance(project_history, list):
+        project_history = [str(p).strip().lower() for p in project_history]
+    
+    # Match student interests with supervisor specialization (15 points each)
+    for interest in student_interests:
+        if interest and interest in specialization:
+            score += 15
+    
+    # Match student interests with supervisor preference areas (10 points each)
+    for interest in student_interests:
+        for area in preference_areas:
+            if interest and area and (interest in area or area in interest):
+                score += 10
+                break
+    
+    # Match student skills with supervisor preference areas (5 points each)
+    for skill in student_skills:
+        for area in preference_areas:
+            if skill and area and (skill in area or area in skill):
+                score += 5
+                break
+    
+    # Match student interests with project history (5 points each)
+    for interest in student_interests:
+        for project in project_history:
+            if interest and project and (interest in project or project in interest):
+                score += 5
+                break
+    
+    return score
+
+def score_to_percentage(score):
+    """
+    Convert match score to percentage (same logic as pattern matching)
+    0-10 points → 0-25%
+    11-20 points → 26-50%
+    21-35 points → 51-75%
+    36+ points → 76-95%
+    """
+    if score <= 10:
+        # 0-10 points: 0-25%
+        return min(25, int(score * 2.5))
+    elif score <= 20:
+        # 11-20 points: 26-50%
+        return 26 + int((score - 11) * 2.4)
+    elif score <= 35:
+        # 21-35 points: 51-75%
+        return 51 + int((score - 21) * 1.6)
+    else:
+        # 36+ points: 76-95%
+        percentage = 76 + int((score - 36) * 0.95)
+        return min(95, percentage)  # Cap at 95%
+
+def process_recommendations(ollama_response, supervisors, student):
     """Process Ollama's recommendations and combine with supervisor data"""
     rankings = ollama_response.get("supervisorRanking", [])
     
@@ -242,15 +349,20 @@ def process_recommendations(ollama_response, supervisors):
         # Supervisor numbers are 1-indexed in the prompt but supervisors list is 0-indexed
         if sup_num and 1 <= sup_num <= len(supervisors):
             supervisor = supervisors[sup_num - 1]
-            match_percentage = calculate_match_percentage(idx, len(rankings))
+            
+            # Calculate REAL match score based on keyword overlap
+            match_score = calculate_keyword_match_score(student, supervisor)
+            match_percentage = score_to_percentage(match_score)
+            
             processed_recommendations.append({
                 **supervisor,
                 "matchReason": rank.get("matchReason", "Good match based on interests and skills"),
                 "aiRecommended": True,
                 "matchPercentage": match_percentage,
+                "matchScore": match_score,  # Include raw score for debugging
                 "confidenceScore": calculate_confidence_from_percentage(match_percentage),
             })
-            print(f"    ✓ Added {supervisor.get('name', 'Unknown')} with {match_percentage}% match")
+            print(f"    ✓ Added {supervisor.get('name', 'Unknown')} - Score: {match_score}, Percentage: {match_percentage}%")
         else:
             print(f"    ✗ Invalid supervisor number: {sup_num}")
     
@@ -266,34 +378,6 @@ def calculate_confidence_from_percentage(percentage):
         return "Fair"
     else:
         return "Low"
-
-def calculate_match_percentage(position, total):
-    """
-    Calculate a match percentage based on position in recommendations
-    Uses a more robust scoring system:
-    - Rank 1: 85-95% (Excellent match)
-    - Rank 2: 75-84% (Very good match)
-    - Rank 3: 65-74% (Good match)
-    - Rank 4: 55-64% (Fair match)
-    - Rank 5+: 45-54% (Possible match)
-    """
-    if total <= 0:
-        return 70
-    
-    if position == 1:
-        return 95
-    elif position == 2:
-        return 85
-    elif position == 3:
-        return 75
-    elif position == 4:
-        return 65
-    elif position == 5:
-        return 55
-    else:
-        # For positions beyond 5, use declining scale
-        percentage = max(45, 55 - ((position - 5) * 5))
-        return percentage
 
 def calculate_precision_at_k(recommendations, accepted_supervisor_id, k=5):
     """

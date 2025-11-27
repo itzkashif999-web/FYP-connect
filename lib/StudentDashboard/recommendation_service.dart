@@ -139,6 +139,12 @@ class RecommendationService {
     List<Map<String, dynamic>> recommendations = [];
     String recommendationSource = 'pattern_matching'; // Track the source
 
+    // ALWAYS calculate pattern matching for comparison
+    final patternRecommendations = await _getPatternMatchingRecommendations(
+      student,
+      supervisors,
+    );
+
     if (_useAiRecommendations) {
       try {
         // Try to use Ollama AI recommendations
@@ -149,7 +155,39 @@ class RecommendationService {
 
         // If we got AI recommendations, use them
         if (aiRecommendations.isNotEmpty) {
-          print("✅ Using AI-generated recommendations");
+          print("\n" + "="*60);
+          print("🔬 ACCURACY COMPARISON - AI vs Pattern Matching");
+          print("="*60);
+          print("Student: ${student['name'] ?? 'Unknown'}");
+          print("Interests: ${student['interest'] ?? 'N/A'}");
+          print("\n🤖 AI RECOMMENDATIONS:");
+          for (int i = 0; i < aiRecommendations.length && i < 5; i++) {
+            final rec = aiRecommendations[i];
+            print("  ${i + 1}. ${rec['name']} - ${rec['matchPercentage']}%");
+          }
+          
+          print("\n📊 PATTERN MATCHING RECOMMENDATIONS:");
+          for (int i = 0; i < patternRecommendations.length && i < 5; i++) {
+            final rec = patternRecommendations[i];
+            print("  ${i + 1}. ${rec['name']} - ${rec['matchPercentage']}%");
+          }
+          
+          // Calculate agreement
+          final aiTop3 = aiRecommendations.take(3).map((r) => r['id']).toSet();
+          final patternTop3 = patternRecommendations.take(3).map((r) => r['id']).toSet();
+          final matched = aiTop3.intersection(patternTop3);
+          final agreement = matched.length / 3 * 100;
+          
+          print("\n✅ AGREEMENT: ${agreement.toStringAsFixed(0)}% (${matched.length}/3 supervisors matched)");
+          if (matched.isNotEmpty) {
+            print("   Matched supervisors:");
+            for (final id in matched) {
+              final sup = supervisors.firstWhere((s) => s['id'] == id);
+              print("   - ${sup['name']}");
+            }
+          }
+          print("="*60 + "\n");
+          
           recommendations = aiRecommendations;
           recommendationSource = 'ai_rag';
         }
@@ -162,10 +200,7 @@ class RecommendationService {
     // Fallback to pattern matching if AI isn't available or fails
     if (recommendations.isEmpty) {
       print("⚠️ Using fallback pattern-matching recommendations");
-      recommendations = await _getPatternMatchingRecommendations(
-        student,
-        supervisors,
-      );
+      recommendations = patternRecommendations;
       recommendationSource = 'pattern_matching';
     }
 
